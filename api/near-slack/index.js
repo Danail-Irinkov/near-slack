@@ -5,9 +5,9 @@ function userIsLoggedIn(user) {
 	return bool
 }
 
-function assert(bool, err_msg) {
-	if (!bool) return throw new Error(err_msg)
-}
+// function assert(bool, err_msg) { // throw not available in functions
+// 	if (!bool) return throw err_msg
+// }
 
 exports.login = async function () {
 	try {
@@ -21,7 +21,7 @@ exports.login = async function () {
 }
 exports.send = async function (user) {
 	try {
-		assert(userIsLoggedIn(user), 'Please login')
+		if (userIsLoggedIn(user)) return 'Please login'
 
 		// TODO: research what send does?!?
 

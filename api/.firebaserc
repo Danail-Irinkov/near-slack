@@ -1,8 +1,5 @@
 {
   "projects": {
     "default": "near-api-1d073"
-  },
-  "functions": {
-    "source": "./"
   }
 }
