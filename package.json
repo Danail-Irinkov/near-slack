@@ -7,6 +7,7 @@
     "serve": "vite preview frontend"
   },
   "dependencies": {
+    "firebase-admin": "^10.0.1",
     "vite-plugin-windicss": "^1.0.4",
     "vue": "^3.0.5"
   },
