@@ -4,7 +4,9 @@
   "scripts": {
     "dev": "vite frontend",
     "build": "vite build frontend",
-    "serve": "vite preview frontend"
+    "serve": "vite preview frontend",
+    "apii": "cd api && npm i",
+    "apid": "cd api && firebase deploy"
   },
   "dependencies": {
     "firebase-admin": "^10.0.1",

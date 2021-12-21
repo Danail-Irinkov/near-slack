@@ -1,5 +1,5 @@
 {
-  "name": "functions",
+  "name": "near-api",
   "description": "Cloud Functions for Firebase",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
@@ -9,16 +9,17 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-    "node": "14"
+	  "node": "16",
+	  "npm": ">= 7.0.0"
   },
   "main": "index.js",
   "dependencies": {
     "firebase": "^9.6.1",
-    "firebase-admin": "^9.8.0",
-    "firebase-functions": "^3.14.1"
+    "firebase-admin": "^10.0.1",
+    "firebase-functions": "^3.16.0"
   },
   "devDependencies": {
-    "firebase-functions-test": "^0.2.0"
+    "firebase-functions-test": "^0.3.3"
   },
   "private": true
 }
