@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "vite frontend",
-    "build": "vite frontend build",
-    "serve": "vite frontend preview"
+    "build": "vite build frontend",
+    "serve": "vite preview frontend"
   },
   "dependencies": {
     "vite-plugin-windicss": "^1.0.4",

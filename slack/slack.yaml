@@ -1,0 +1,36 @@
+_metadata:
+  major_version: 1
+  minor_version: 1
+display_information:
+  name: NEAR Slack Integration
+  long_description: You can discover and interract with NEAR contracts, make transactions and more.
+  description: Utilize the power of near-cli via a REST API.
+  background_color: "#a463b0"
+settings:
+  socket_mode_enabled: false
+  interactivity:
+    is_enabled: true
+    request_url: https://near-api.org/slack/message_action
+  event_subscriptions:
+    bot_events:
+      - app_home_opened
+features:
+  app_home:
+    home_tab_enabled: true
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: false
+  bot_user:
+    display_name: near
+  slash_commands:
+    - command: /near
+      description: Access NEAR Protocol in the same way as using the near-cli
+      usage_hint: /near help
+      url: https://near-api.org/slack/slash/please
+oauth_config:
+  scopes:
+    bot:
+      - commands
+      - chat:write
+      - chat:write.public
+  redirect_urls:
+    - https://near-api.org/slack/auth

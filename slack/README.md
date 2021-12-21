@@ -1,0 +1,2 @@
+Slack app configuration folder
+
