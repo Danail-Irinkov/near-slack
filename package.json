@@ -4,6 +4,8 @@
   "scripts": {
     "dev": "vite frontend",
     "build": "vite build frontend",
+	  "buildd": "vite build frontend && cd frontend && firebase deploy",
+	  "builds": "vite build frontend && cd frontend && firebase hosting:channel:deploy staging",
     "serve": "vite preview frontend",
     "apii": "cd api && npm i",
     "apid": "cd api && firebase deploy"

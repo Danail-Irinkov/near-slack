@@ -1,5 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+// @ts-ignore
 import * as rp from "request-promise";
 
 admin.initializeApp(functions.config().firebase);
@@ -11,6 +12,7 @@ const SLACK_ACTION_REQUEST_PING = "ping-pong";
 //
 
 //noinspection JSUnusedGlobalSymbols
+// @ts-ignore
 export const oauth_redirect = functions.https.onRequest(async (request, response) => {
 	if (request.method !== "GET") {
 		console.error(`Got unsupported ${request.method} request. Expected GET.`);
@@ -52,6 +54,7 @@ export const oauth_redirect = functions.https.onRequest(async (request, response
 });
 
 //noinspection JSUnusedGlobalSymbols
+// @ts-ignore
 export const command_ping = functions.https.onRequest(async (request, response) => {
 	if (request.method !== "POST") {
 		console.error(`Got unsupported ${request.method} request. Expected POST.`);
@@ -74,6 +77,7 @@ export const command_ping = functions.https.onRequest(async (request, response) 
 });
 
 //noinspection JSUnusedGlobalSymbols
+// @ts-ignore
 export const message_action = functions.https.onRequest(async (request, response) => {
 	if (request.method !== "POST") {
 		console.error(`Got unsupported ${request.method} request. Expected POST.`);
@@ -118,23 +122,28 @@ export const message_action = functions.https.onRequest(async (request, response
 
 //noinspection JSUnusedGlobalSymbols
 export const on_command_ping = functions.database.ref("commands/ping/{id}").onWrite(async (event) => {
+// @ts-ignore
 	if (!event.data.exists()) {
 		return "Nothing to do for deletion of processed commands.";
 	}
 
 	// Start by deleting the command itself from the queue
+// @ts-ignore
 	await event.data.ref.remove();
 
+// @ts-ignore
 	const command = event.data.val() as SlackSlashCommand;
 
 	const installationRef = admin.database().ref("installations").child(command.team_id);
 	const installation = (await installationRef.once("value")).val() as InstallationData;
 
+// @ts-ignore
 	const options = {
 		uri: installation.webhook.url,
 		method: "POST",
 		json: true,
 		body: {
+// @ts-ignore
 			text: `You are challenged to a game of PING! (id: ${event.params.id})`,
 			attachments: [
 				{
@@ -146,6 +155,7 @@ export const on_command_ping = functions.database.ref("commands/ping/{id}").onWr
 							name: "1.pong",
 							text: "Pong!",
 							type: "button",
+// @ts-ignore
 							value: event.params.id
 						}
 					]
@@ -155,24 +165,29 @@ export const on_command_ping = functions.database.ref("commands/ping/{id}").onWr
 	};
 
 	const ping: Ping = {
+// @ts-ignore
 		pinged_at: admin.database.ServerValue.TIMESTAMP,
 		team: command.team_id,
 		user: command.user_id
 	};
 
+// @ts-ignore
 	await admin.database().ref("ping").child(event.params.id).set(ping);
 	return rp(options);
 });
 
 //noinspection JSUnusedGlobalSymbols
 export const on_actions = functions.database.ref("actions/{id}").onWrite(async (event) => {
+// @ts-ignore
 	if (!event.data.exists()) {
 		return "Nothing to do for deletion of processed commands.";
 	}
 
 	// Start by deleting the action request itself from the queue
+// @ts-ignore
 	await event.data.ref.remove();
 
+// @ts-ignore
 	const action = event.data.val() as SlackActionInvocation;
 
 	if (action.callback_id !== SLACK_ACTION_REQUEST_PING) {

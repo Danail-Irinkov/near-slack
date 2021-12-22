@@ -53,10 +53,8 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 		return res.status(401).send("Missing query attribute 'code'");
 	}
 
-	// TODO: configure functions.config().slack.id and secret
 	// TODO: refactor to actually make the request to https://slack.com/api/oauth.access
 	// TODO: COPY a Success page and mount on FrontEND
-	// TODO: HOST frontend on Firebase Hosting
 
 	const options = {
 		uri: "https://slack.com/api/oauth.access",
@@ -64,9 +62,9 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 		json: true,
 		qs: {
 			code: req.query.code,
-			client_id: functions.config().slack.id,
-			client_secret: functions.config().slack.secret,
-			redirect_uri: `https://us-central1-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/oauth_redirect`
+			client_id: functions.config().slack.client_id,
+			client_secret: functions.config().slack.client_secret,
+			redirect_uri: `https://us-central1-${process.env.GCLOUD_PROJECT}.cloudfunctions.net/slackOauth`
 		}
 	};
 
