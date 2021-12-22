@@ -9,11 +9,15 @@
     "logs": "firebase functions:log"
   },
   "engines": {
-	  "node": "16",
-	  "npm": ">= 7.0.0"
+    "node": "16",
+    "npm": ">= 7.0.0"
   },
   "main": "index.js",
   "dependencies": {
+    "@slack/events-api": "^3.0.1",
+    "@slack/oauth": "^2.3.0",
+    "@slack/web-api": "^6.5.1",
+    "axios": "^0.24.0",
     "firebase": "^9.6.1",
     "firebase-admin": "^10.0.1",
     "firebase-functions": "^3.16.0"

@@ -4,13 +4,15 @@
   "scripts": {
     "dev": "vite frontend",
     "build": "vite build frontend",
-	  "buildd": "vite build frontend && cd frontend && firebase deploy",
-	  "builds": "vite build frontend && cd frontend && firebase hosting:channel:deploy staging",
+    "buildd": "vite build frontend && cd frontend && firebase deploy",
+    "builds": "vite build frontend && cd frontend && firebase hosting:channel:deploy staging",
     "serve": "vite preview frontend",
     "apii": "cd api && npm i",
-    "apid": "cd api && firebase deploy"
+    "apid": "cd api && firebase deploy",
+    "apie": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase emulators:start --only functions"
   },
   "dependencies": {
+    "express": "^4.17.2",
     "firebase-admin": "^10.0.1",
     "vite-plugin-windicss": "^1.0.4",
     "vue": "^3.0.5"

@@ -2,20 +2,13 @@ _metadata:
   major_version: 1
   minor_version: 1
 display_information:
-  name: NEAR Slack Integration
-  long_description: You can discover and interract with NEAR contracts, make transactions and more. If you have used near-cli before, you will immediately know what to do. Otherwise visit https://near-api.org/slack to watch our short demo. To get help use '/near help'
+  name: NEAR Slack
   description: Utilize the power of near-cli via Slack Slash Commands.
   background_color: "#a463b0"
-settings:
-  socket_mode_enabled: false
-  interactivity:
-    is_enabled: true
-#    request_url: https://near-api.org/api/slackHook
-    request_url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
-  event_subscriptions:
-    request_url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
-    bot_events:
-      - app_home_opened
+  long_description: You can discover and interract with NEAR contracts, make
+    transactions and more. If you have used near-cli before, you will
+    immediately know what to do. Otherwise visit https://near-api.org/slack to
+    watch our short demo. To get help use '/near help'
 features:
   app_home:
     home_tab_enabled: true
@@ -23,16 +16,29 @@ features:
     messages_tab_read_only_enabled: false
   bot_user:
     display_name: near
+    always_online: true
   slash_commands:
     - command: /near
+      url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
       description: Access NEAR Protocol in the same way as using the near-cli
       usage_hint: /near help
-      url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
+      should_escape: false
 oauth_config:
+  redirect_urls:
+    - https://us-central1-near-api-1d073.cloudfunctions.net/slackOauth
   scopes:
     bot:
       - commands
       - chat:write
       - chat:write.public
-  redirect_urls:
-    - https://near-api.org/slack/auth
+settings:
+  event_subscriptions:
+    request_url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
+    bot_events:
+      - app_home_opened
+  interactivity:
+    is_enabled: true
+    request_url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
