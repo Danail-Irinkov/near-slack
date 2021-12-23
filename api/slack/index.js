@@ -1,4 +1,6 @@
 const { InstallProvider } = require('@slack/oauth');
+const { firebaseConfig } = require('firebase-functions/v1');
+const nearAPI = require('near-api-js');
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -48,7 +50,35 @@ module.exports = function (db, functions) {
 // 	if (!bool) return throw err_msg
 // }
 
-	async function login() {
+	async function login(user, token, fl) {
+
+		fl.log('login user', user);
+		fl.log('login token', token);
+		
+		db.collection('users').doc(user).set({token});
+		
+		const doc = db.collection('users').doc(user).get();
+
+		if (!doc.exists) {
+
+			const config = {
+				networkId: "testnet",
+				keyStore: new keyStores.BrowserLocalStorageKeyStore(),
+				nodeUrl: "https://rpc.testnet.near.org",
+				walletUrl: "https://wallet.testnet.near.org",
+				helperUrl: "https://helper.testnet.near.org",
+				explorerUrl: "https://explorer.testnet.near.org",
+			};
+
+			// connect to NEAR
+			const near = await nearAPI.connect(config);
+			// create wallet connection
+			const wallet = new nearAPI.WalletConnection(near);
+			wallet.
+			const accountId = this.walletAccount.getAccountId();
+		}
+
+
 		try {
 			// TODO: check if current user is logged in
 			// if not -> redirect to login page

@@ -59,20 +59,22 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 });
 
 exports.slackHook = functions.https.onRequest(async (req, res) => {
-	let payload = req.body
-	fl.log('slackHook payload', payload)
-	let commands = String(payload.text).split(' ')
-	fl.log('slackHook commands', commands)
-	fl.log('slackHook commands[0]', commands[0])
+	let payload = req.body;
+	fl.log('slackHook payload', payload);
+	let commands = String(payload.text).split(' ');
+	fl.log('slackHook commands', commands);
+	fl.log('slackHook commands[0]', commands[0]);
 
 	let response = {message: "Hello from slackHook!"}
 	switch (commands[0]) {
 		case 'login':
-			response = await slack.login()
+			response = await slack.login(payload.user_name, payload.token, fl)
 			break
 		case 'help':
 			response = 'Help is under development'
 			break
+		default:
+			fl.log('No such command.');
 	}
 
 	res.send(response);
