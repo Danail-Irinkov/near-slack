@@ -1,43 +1,28 @@
 import 'virtual:windi.css'
-import { createApp, Vue } from 'vue'
-import VueRouter from 'vue-router'
+import * as Vue  from 'vue'
+// import router from './router'
 import App from './App.vue'
+import * as VueRouter from 'vue-router'
 
-// Vue.use(VueRouter)
+const routes = [
+  { path: '/', component: Home },
+  { path: '/about/:mitko', component: Button },
+  { path: '/login', component: Login },
+]
 
-// // 0. If using a module system (e.g. via vue-cli), import Vue and VueRouter
-// // and then call `Vue.use(VueRouter)`.
+// 3. Create the router instance and pass the `routes` option
+// You can pass in additional options here, but let's
+// keep it simple for now.
+const router = VueRouter.createRouter({
+  // 4. Provide the history implementation to use. We are using the hash history for simplicity here.
+  history: VueRouter.createWebHistory(),
+  routes, // short for `routes: routes`
+})
 
-// // 1. Define route components.
-// // These can be imported from other files
-// const Foo = { template: '<div>foo</div>' }
-// const Bar = { template: '<div>bar</div>' }
+// 5. Create and mount the root instance.
+const app = Vue.createApp(App)
+// Make sure to _use_ the router instance to make the
+// whole app router-aware.
+app.use(router)
 
-// // 2. Define some routes
-// // Each route should map to a component. The "component" can
-// // either be an actual component constructor created via
-// // `Vue.extend()`, or just a component options object.
-// // We'll talk about nested routes later.
-// const routes = [
-//   { path: '/foo', component: Foo },
-//   { path: '/bar', component: Bar },
-// 	{ path: '/'		, component: App }
-// ]
-
-// // 3. Create the router instance and pass the `routes` option
-// // You can pass in additional options here, but let's
-// // keep it simple for now.
-// const router = new VueRouter({
-//   routes // short for `routes: routes`
-// })
-
-// // 4. Create and mount the root instance.
-// // Make sure to inject the router with the router option to make the
-// // whole app router-aware.
-// const app = new Vue({
-//   router
-// }).$mount('#app')
-
-// // Now the app has started!
-
-createApp(App).mount('#app')
+app.mount('#app')

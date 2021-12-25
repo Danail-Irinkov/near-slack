@@ -17,7 +17,7 @@
     "firebase-admin": "^10.0.1",
     "vite-plugin-windicss": "^1.0.4",
     "vue": "^3.0.5",
-    "vue-router": "^3.5.3"
+    "vue-router": "^4.0.12"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^1.2.3",
