@@ -9,6 +9,6 @@ export default defineConfig({
     WindiCSS()
   ],
   server: {
-    open: '/index.html',
+    open: '/test',
   }
 })
