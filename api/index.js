@@ -25,6 +25,7 @@ const slack = require('./slack')(db, functions)
 const fl = functions.logger //Logging shortcut
 
 exports.helloWorld = functions.https.onRequest((req, res) => {
+	exampleDBReadWrite()
 	res.send("Hello from Firebase!");
 });
 
@@ -79,7 +80,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 
 	res.send(response);
 })
-
 async function exampleDBReadWrite() {
 	const docRef = db.collection('users').doc('alovelace');
 	let result = await docRef.set({

@@ -51,32 +51,31 @@ module.exports = function (db, functions) {
 // }
 
 	async function login(user, token, fl) {
+		fl.log('login user', user)
+		fl.log('login token', token)
 
-		fl.log('login user', user);
-		fl.log('login token', token);
-		
-		db.collection('users').doc(user).set({token});
-		
-		const doc = db.collection('users').doc(user).get();
+		db.collection('users').doc(user).set({token})
 
-		if (!doc.exists) {
+		const doc = db.collection('users').doc(user).get()
 
-			const config = {
-				networkId: "testnet",
-				keyStore: new keyStores.BrowserLocalStorageKeyStore(),
-				nodeUrl: "https://rpc.testnet.near.org",
-				walletUrl: "https://wallet.testnet.near.org",
-				helperUrl: "https://helper.testnet.near.org",
-				explorerUrl: "https://explorer.testnet.near.org",
-			};
-
-			// connect to NEAR
-			const near = await nearAPI.connect(config);
-			// create wallet connection
-			const wallet = new nearAPI.WalletConnection(near);
-			wallet.
-			const accountId = this.walletAccount.getAccountId();
-		}
+		// if (!doc.exists) {
+		//
+		// 	const config = {
+		// 		networkId: "testnet",
+		// 		keyStore: new keyStores.BrowserLocalStorageKeyStore(),
+		// 		nodeUrl: "https://rpc.testnet.near.org",
+		// 		walletUrl: "https://wallet.testnet.near.org",
+		// 		helperUrl: "https://helper.testnet.near.org",
+		// 		explorerUrl: "https://explorer.testnet.near.org",
+		// 	};
+		//
+		// 	// connect to NEAR
+		// 	const near = await nearAPI.connect(config);
+		// 	// create wallet connection
+		// 	const wallet = new nearAPI.WalletConnection(near);
+		// 	wallet.
+		// 	const accountId = this.walletAccount.getAccountId();
+		// }
 
 
 		try {

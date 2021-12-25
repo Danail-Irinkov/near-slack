@@ -9,7 +9,7 @@
     "serve": "vite preview frontend",
     "apii": "cd api && npm i",
     "apid": "cd api && firebase deploy",
-    "apie": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase emulators:start"
+    "apie": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase emulators:start --only functions"
   },
   "dependencies": {
     "axios": "^0.24.0",
