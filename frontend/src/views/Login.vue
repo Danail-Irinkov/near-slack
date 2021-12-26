@@ -20,7 +20,6 @@
 </template>
 
 <script>
-
 import * as nearAPI from 'near-api-js'
 
 import NearLoginButton from '../components/NearLoginButton.vue'
@@ -79,13 +78,13 @@ export default {
 
 		console.log("Mounted")
 
-		// const config = { 
-		// 	...this.config, 
+		// const config = {
+		// 	...this.config,
 		// 	// ...{
 		// 	// 	// creates keyStore using private key in local storage
 		// 	// 	// *** REQUIRES SignIn using walletConnection.requestSignIn() ***
-		// 	// 	keyStore: new nearAPI.keyStores.BrowserLocalStorageKeyStore() 
-		// 	// } 
+		// 	// 	keyStore: new nearAPI.keyStores.BrowserLocalStorageKeyStore()
+		// 	// }
 		// };
 
 		// // connect to NEAR
