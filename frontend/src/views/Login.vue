@@ -26,30 +26,30 @@ import NearLoginButton from '../components/NearLoginButton.vue'
 
 const CONTRACT_NAME = 'maix.testnet';
 
-// function getConfig (env) {
-// 	switch (env) {
-// 	case 'production':
-// 	case 'mainnet':
-// 		return {
-// 			networkId: 'mainnet',
-// 			nodeUrl: 'https://rpc.mainnet.near.org',
-// 			contractName: CONTRACT_NAME,
-// 			walletUrl: 'https://wallet.near.org',
-// 			helperUrl: 'https://helper.mainnet.near.org'
-// 		}
-// 	case 'development':
-// 	case 'testnet':
-// 		return {
-// 			networkId: 'testnet',
-// 			nodeUrl: 'https://rpc.testnet.near.org',
-// 			contractName: CONTRACT_NAME,
-// 			walletUrl: 'https://wallet.testnet.near.org',
-// 			helperUrl: 'https://helper.testnet.near.org'
-// 		}
-// 	default:
-// 		throw Error(`Unconfigured environment '${env}'. Can be configured in src/config.js.`)
-// 	}
-// }
+function getConfig (env) {
+	switch (env) {
+	case 'production':
+	case 'mainnet':
+		return {
+			networkId: 'mainnet',
+			nodeUrl: 'https://rpc.mainnet.near.org',
+			contractName: CONTRACT_NAME,
+			walletUrl: 'https://wallet.near.org',
+			helperUrl: 'https://helper.mainnet.near.org'
+		}
+	case 'development':
+	case 'testnet':
+		return {
+			networkId: 'testnet',
+			nodeUrl: 'https://rpc.testnet.near.org',
+			contractName: CONTRACT_NAME,
+			walletUrl: 'https://wallet.testnet.near.org',
+			helperUrl: 'https://helper.testnet.near.org'
+		}
+	default:
+		throw Error(`Unconfigured environment '${env}'. Can be configured in src/config.js.`)
+	}
+}
 
 export default {
 	name: 'login',
@@ -60,40 +60,42 @@ export default {
 	},
 	data() {
 		return {
-			// config: getConfig('development'),
-			// near: null,
-			// walletAccount: {},
-			// accountId: null,
+			config: getConfig('development'),
+			near: "nullirai",
+			walletAccount: {},
+			accountId: null,
 		};
 	},
 	created() {
-		// if (this.$route.params.slack_token) {
-		// 	console.log('this.$route.params.slack_token', this.$route.params.slack_token)
-		// 	this.authWithFirestore()
-		// }
+		if (this.$route.params.slack_token) {
+			console.log('this.$route.params.slack_token', this.$route.params.slack_token)
+			this.authWithFirestore()
+		}
 	},
 	beforeUnmount() {
 	},
-	 mounted() {
+	async mounted() {
 
 		console.log("Mounted")
 
-		// const config = {
-		// 	...this.config,
-		// 	// ...{
-		// 	// 	// creates keyStore using private key in local storage
-		// 	// 	// *** REQUIRES SignIn using walletConnection.requestSignIn() ***
-		// 	// 	keyStore: new nearAPI.keyStores.BrowserLocalStorageKeyStore()
-		// 	// }
-		// };
+		const config = {
+			...this.config,
+			...{
+				// creates keyStore using private key in local storage
+				// *** REQUIRES SignIn using walletConnection.requestSignIn() ***
+				keyStore: new nearAPI.keyStores.BrowserLocalStorageKeyStore()
+			}
+		};
 
-		// // connect to NEAR
-		// this.near = await nearAPI.connect(config);
+		// connect to NEAR
+		this.near = await nearAPI.connect(config);
 		// // create wallet connection
-		// this.walletAccount = new nearAPI.WalletConnection(this.near);
-		// this.accountId = this.walletAccount.getAccountId();
+		this.walletAccount = new nearAPI.WalletConnection(this.near);
+		this.accountId = this.walletAccount.getAccountId();
 
-		// console.log("config.keyStore", config.keyStore);
+		const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
+		
+		console.log("config.keyStore", key);
 	},
 	methods: {
 		authWithFirestore() {
