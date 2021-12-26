@@ -1,6 +1,5 @@
 const { InstallProvider } = require('@slack/oauth');
 const { firebaseConfig } = require('firebase-functions/v1');
-const nearAPI = require('near-api-js');
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -39,10 +38,13 @@ module.exports = function (db, functions) {
 		},
 	});
 
-	function userIsLoggedIn(user) {
-		let bool = false
-		// TODO: check
+	async function userIsLoggedInWithNear(user_name) {
+		let bool = false;
 
+		let user = await db.collection('users').doc(user_name);
+		if (user_name) bool = !!user_name.token_near;
+		// TODO: check if token is valid (maybe some invalid string)
+		// TODO: check if token is active (make some request to near)
 		return bool
 	}
 
@@ -50,47 +52,20 @@ module.exports = function (db, functions) {
 // 	if (!bool) return throw err_msg
 // }
 
-	async function login(user, token, fl) {
 
-		fl.log('login user', user);
-		fl.log('login token', token);
-		
-		db.collection('users').doc(user).set({token});
-		
-		const doc = db.collection('users').doc(user).get();
-
-		if (!doc.exists) {
-
-			const config = {
-				networkId: "testnet",
-				keyStore: new keyStores.BrowserLocalStorageKeyStore(),
-				nodeUrl: "https://rpc.testnet.near.org",
-				walletUrl: "https://wallet.testnet.near.org",
-				helperUrl: "https://helper.testnet.near.org",
-				explorerUrl: "https://explorer.testnet.near.org",
-			};
-
-			// connect to NEAR
-			const near = await nearAPI.connect(config);
-			// create wallet connection
-			const wallet = new nearAPI.WalletConnection(near);
-			wallet.
-			const accountId = this.walletAccount.getAccountId();
-		}
+	async function login(user_name, token_slack, fl) {
+				
+		fl.log("user_name", user_name);
+		const doc = await db.collection('users').doc(user_name).get();
 
 
-		try {
-			// TODO: check if current user is logged in
-			// if not -> redirect to login page
-			// if yes -> response with 'You are already logged in'
-		} catch (e) {
-			console.log('near-cli login err: ', e)
-			return Promise.reject(e)
-		}
+		fl.log("doc", doc);
+
+		return "Successfully logged in";
 	}
 	async function send(user) {
 		try {
-			if (userIsLoggedIn(user)) return 'Please login'
+			if (userIsLoggedInWithNear(user)) return 'Please login'
 
 			// TODO: research what send does?!?
 
@@ -119,12 +94,16 @@ module.exports = function (db, functions) {
 
 	}
 
+	async function hello () {
+		return "Hello from near-cli";
+	}
+
 	return {
 		installer,
 		login,
 		send,
 		view,
-		call
+		call,
+		hello
 	}
 }
-

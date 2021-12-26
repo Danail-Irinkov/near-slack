@@ -4,7 +4,8 @@
 		<div>
 			<button class="test-button" @click="testLoginToken"> Test Login Token</button>
 			<button class="test-button" @click="testLoginNoToken"> Test Login No Token</button>
-			<button class="test-button" @click="testSlackHook"> Test Slack Hook</button>
+			<button class="test-button" @click="testSlackHook('help')"> Test Slack Hook Help</button>
+			<button class="test-button" @click="testSlackHook('login')"> Test Slack Hook Login</button>
 		</div>
   </div>
 </template>
@@ -39,9 +40,25 @@ export default {
 		testLoginNoToken() {
 			this.$router.push('/login')
 		},
-		async testSlackHook() {
-			let res = await axios.post('ads', { params: this.slackHookData})
-			console.log('testSlackHook res', res)
+		async testSlackHook(command = "") {
+
+			let slackData = {...this.slackHookData};
+
+			switch (command) {
+				case "help":
+					slackData.text = "help";
+					break;
+				case "login":
+					slackData.text = "login maix.testnet";
+					break;
+				default:
+					console.error("No command specified")
+			}
+
+			// console.log("slackData.text", slackData.token)
+
+			let res = await axios.post('http://localhost:5001/near-api-1d073/us-central1/slackHook', slackData)
+			// console.log('testSlackHook res', res)
 		},
 	}
 }
