@@ -1,6 +1,5 @@
 const { InstallProvider } = require('@slack/oauth');
 const { firebaseConfig } = require('firebase-functions/v1');
-const nearAPI = require('near-api-js');
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -39,10 +38,13 @@ module.exports = function (db, functions) {
 		},
 	});
 
-	function userIsLoggedIn(user) {
-		let bool = false
-		// TODO: check
+	async function userIsLoggedInWithNear(user_name) {
+		let bool = false;
 
+		let user = await db.collection('users').doc(user_name);
+		if (user_name) bool = !!user_name.token_near;
+		// TODO: check if token is valid (maybe some invalid string)
+		// TODO: check if token is active (make some request to near)
 		return bool
 	}
 
@@ -89,7 +91,7 @@ module.exports = function (db, functions) {
 	}
 	async function send(user) {
 		try {
-			if (userIsLoggedIn(user)) return 'Please login'
+			if (userIsLoggedInWithNear(user)) return 'Please login'
 
 			// TODO: research what send does?!?
 
@@ -118,12 +120,16 @@ module.exports = function (db, functions) {
 
 	}
 
+	async function hello () {
+		return "Hello from near-cli";
+	}
+
 	return {
 		installer,
 		login,
 		send,
 		view,
-		call
+		call,
+		hello
 	}
 }
-

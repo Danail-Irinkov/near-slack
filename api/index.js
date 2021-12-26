@@ -60,24 +60,33 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 });
 
 exports.slackHook = functions.https.onRequest(async (req, res) => {
+
+	// CORS enabled
+	res.set('Access-Control-Allow-Origin' , '*');
+	res.set('Access-Control-Allow-Methods', 'POST');
+	res.set('Access-Control-Allow-Headers', '*');
+
 	let payload = req.body;
-	fl.log('slackHook payload', payload);
+	// fl.log('slackHook payload', payload);
 	let commands = String(payload.text).split(' ');
-	fl.log('slackHook commands', commands);
-	fl.log('slackHook commands[0]', commands[0]);
+	// fl.log('slackHook commands', commands, count++);
+	// fl.log('slackHook commands[0]', commands[0]);
+
+	// fl.log('payload.token', payload.token);
 
 	let response = {message: "Hello from slackHook!"}
 	switch (commands[0]) {
 		case 'login':
+			// response = await slack.hello()
 			response = await slack.login(payload.user_name, payload.token, fl)
+			// response = "login"
 			break
 		case 'help':
 			response = 'Help is under development'
 			break
 		default:
-			fl.log('No such command.');
+			// fl.log('No such command.');
 	}
-
 	res.send(response);
 })
 async function exampleDBReadWrite() {
