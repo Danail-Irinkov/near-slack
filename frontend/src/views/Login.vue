@@ -6,9 +6,9 @@
 					<h4 class="text-2xl mt-4 font-bold text-center">{{ nearUser }}</h4>
 					<NearLoginButton class="mt-8" @click="requestNearLogin"></NearLoginButton>
 				</div>
-				<!-- <div class="step-success" v-else-if="this.walletAccount.isSignedIn && this.walletAccount.isSignedIn()">
+				<div class="step-success" v-else-if="this.walletAccount.isSignedIn && this.walletAccount.isSignedIn()">
 					<h3 class="text-2xl font-bold text-center">Than you for Signing in with Near</h3>
-				</div> -->
+				</div>
 				<div class="step-token-missing" v-else>
 					<h3 class="text-2xl leading-12 font-bold text-center">
 						To login with Slack and Near<br>
@@ -21,7 +21,7 @@
 
 <script>
 import * as nearAPI from 'near-api-js'
-// import { collection, doc, setDoc } from "firebase/firestore"; 
+import { collection, doc, setDoc } from "firebase/firestore"; 
 
 import NearLoginButton from '../components/NearLoginButton.vue'
 
@@ -94,7 +94,7 @@ export default {
 		this.walletAccount = new nearAPI.WalletConnection(this.near);
 		this.accountId = this.walletAccount.getAccountId();
 
-		// const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
+		const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
 		
 		console.log("config.keyStore", key);
 	},
@@ -107,10 +107,7 @@ export default {
 
 
 
-			this.walletAccount.requestSignIn(
-				this.naer,
-				'Authorize Slack NEAR?'
-			);
+			this.walletAccount.requestSignIn();
 		}
 	}
 }

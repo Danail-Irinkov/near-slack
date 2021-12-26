@@ -16,6 +16,7 @@
     "axios": "^0.24.0",
     "buffer": "^6.0.3",
     "express": "^4.17.2",
+    "firebase": "^9.6.1",
     "firebase-admin": "^10.0.1",
     "near-api-js": "^0.44.2",
     "vite-plugin-windicss": "^1.0.4",
