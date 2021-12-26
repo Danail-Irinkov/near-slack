@@ -7,7 +7,7 @@ import Login from '../views/Login.vue'
 const routes = [
 	{ path: '/', component: Home },
 	{ path: '/test', component: Test },
-	{ path: '/login/:slack_token?', component: Login },
+	{ path: '/login/:fb_token?', component: Login },
 ]
 
 // 3. Create the router instance and pass the `routes` option

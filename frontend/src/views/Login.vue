@@ -1,13 +1,13 @@
 <template>
 		<div class="slack-layout">
 			<div class="login-form">
-				<div class="step-login" v-if="$route.params.slack_token">
-					<h3 class="text-2xl font-bold text-center">Sign in with your NEAR account</h3>
-					<h4 class="text-2xl mt-4 font-bold text-center">{{ nearUser }}</h4>
-					<NearLoginButton class="mt-8" @click="requestNearLogin"></NearLoginButton>
+				<div class="step-success" v-if="$route.query.all_keys">
+					<h3 class="text-2xl font-bold text-center">Thank you for Signing in with NEAR</h3>
 				</div>
-				<div class="step-success" v-else-if="this.walletAccount.isSignedIn && this.walletAccount.isSignedIn()">
-					<h3 class="text-2xl font-bold text-center">Than you for Signing in with Near</h3>
+				<div class="step-login" v-else-if="$route.query.fb_token">
+					<h3 class="text-2xl font-bold text-center">Sign in with your NEAR account</h3>
+					<h4 class="text-2xl mt-4 font-bold text-center">{{ accountId }}</h4>
+					<NearLoginButton class="mt-8" @click="requestNearLogin"></NearLoginButton>
 				</div>
 				<div class="step-token-missing" v-else>
 					<h3 class="text-2xl leading-12 font-bold text-center">
@@ -21,36 +21,13 @@
 
 <script>
 import * as nearAPI from 'near-api-js'
-import { collection, doc, setDoc } from "firebase/firestore"; 
+import { getAuth, signInWithCustomToken } from "firebase/auth";
+import { doc, updateDoc } from "firebase/firestore";
 
 import NearLoginButton from '../components/NearLoginButton.vue'
+import nearConfig from '../config/nearConfig.js'
 
-const CONTRACT_NAME = 'maix.testnet';
-
-function getConfig (env) {
-	switch (env) {
-	case 'production':
-	case 'mainnet':
-		return {
-			networkId: 'mainnet',
-			nodeUrl: 'https://rpc.mainnet.near.org',
-			contractName: CONTRACT_NAME,
-			walletUrl: 'https://wallet.near.org',
-			helperUrl: 'https://helper.mainnet.near.org'
-		}
-	case 'development':
-	case 'testnet':
-		return {
-			networkId: 'testnet',
-			nodeUrl: 'https://rpc.testnet.near.org',
-			contractName: CONTRACT_NAME,
-			walletUrl: 'https://wallet.testnet.near.org',
-			helperUrl: 'https://helper.testnet.near.org'
-		}
-	default:
-		throw Error(`Unconfigured environment '${env}'. Can be configured in src/config.js.`)
-	}
-}
+// const CONTRACT_NAME = 'maix.testnet';
 
 export default {
 	name: 'login',
@@ -61,52 +38,66 @@ export default {
 	},
 	data() {
 		return {
-			config: getConfig('development'),
-			near: "nullirai",
+			auth: null,
+			config: null,
+			near: null,
 			walletAccount: {},
 			accountId: null,
 		};
 	},
 	created() {
-		if (this.$route.params.slack_token) {
-			console.log('this.$route.params.slack_token', this.$route.params.slack_token)
-			this.authWithFirestore()
-		}
-	},
-	beforeUnmount() {
 	},
 	async mounted() {
-
 		console.log("Mounted")
-
-		const config = {
-			...this.config,
-			...{
-				// creates keyStore using private key in local storage
-				// *** REQUIRES SignIn using walletConnection.requestSignIn() ***
-				keyStore: new nearAPI.keyStores.BrowserLocalStorageKeyStore()
-			}
-		};
-
-		// connect to NEAR
-		this.near = await nearAPI.connect(config);
-		// // create wallet connection
-		this.walletAccount = new nearAPI.WalletConnection(this.near);
-		this.accountId = this.walletAccount.getAccountId();
-
-		const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
-		
-		console.log("config.keyStore", key);
+		if (this.$route.query.fb_token) {
+			await this.authFirestore()
+			await this.initNearAPI()
+		}
+		if (this.$route.query.all_keys && !!'TODO: key is valid') {
+			await this.updateUserNearFunctionKey()
+		}
 	},
 	methods: {
-		authWithFirestore() {
-			// TODO: Add code to initialzie connection with Firestore
+		async authFirestore() {
+			try {
+				this.auth = getAuth();
+				// console.log('authFirestore fb_token', this.$route.query.fb_token)
+				let user = await signInWithCustomToken(this.auth, this.$route.query.fb_token)
+				console.log('authFirestore user', user)
+			} catch (e) {
+				console.log('authFirestore err: ', e)
+			}
+		},
+		async updateUserNearFunctionKey() {
+			console.log('this.$route.query.all_keys', this.$route.query.all_keys)
+			const userId = this.auth.currentUser.uid
+			return updateDoc(doc(this.$db, "users", userId), {
+				near_account: this.$route.query.account_id,
+				near_fn_key: this.$route.query.all_keys
+			})
+		},
+		async initNearAPI() {
+			try {
+				const config = nearConfig.getConfig('testnet')
+				const keyStore = new nearAPI.keyStores.BrowserLocalStorageKeyStore()
+				console.log("keyStore", keyStore)
+				if (keyStore) config.keyStore = keyStore
+				
+				// connect to NEAR
+				this.near = await nearAPI.connect(config);
+				this.walletAccount = new nearAPI.WalletConnection(this.near);
+				this.accountId = this.walletAccount.getAccountId();
+				
+				// TODO: Tozi kod s kakva cel e? Az zapisvam token-a sled redirecta ot query params, no nz dali e pravilniq token
+				// const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
+				// console.log("config.keyStore", key);
+			} catch (e) {
+				console.log('initNearAPI err', e)
+				return Promise.reject(e)
+			}
 		},
 		requestNearLogin() {
 			console.log('requestNearLogin Start')
-
-
-
 			this.walletAccount.requestSignIn();
 		}
 	}
@@ -123,7 +114,7 @@ a {
 }
 .login-form {
 	@apply px-8 py-6 text-left bg-white shadow-lg text-near1-900;
-	margin-bottom: 35%;
+	margin-top: -30vh;
 	& > div {
 		@apply content-center items-center place-items-center justify-center justify-items-center
 	}

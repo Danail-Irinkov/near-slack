@@ -1,5 +1,7 @@
 const { InstallProvider } = require('@slack/oauth');
 const { firebaseConfig } = require('firebase-functions/v1');
+const { getAuth } = require('firebase-admin/auth')
+
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -7,7 +9,7 @@ module.exports = function (db, functions) {
 		clientId: functions.config().slack.client_id,
 		clientSecret: functions.config().slack.client_secret,
 		stateSecret: functions.config().slack.random_encryption_string,
-		stateVerification: false,
+		// stateVerification: false,
 		installationStore: {
 			storeInstallation: async (installation) => {
 				if (installation.isEnterpriseInstall && installation.enterprise && installation.enterprise.id) {
@@ -52,38 +54,28 @@ module.exports = function (db, functions) {
 // 	if (!bool) return throw err_msg
 // }
 
-	async function login(user, token, fl) {
-		fl.log('login user', user)
-		fl.log('login token', token)
-
-		db.collection('users').doc(user).set({token})
-
-		const doc = db.collection('users').doc(user).get()
-
-		// if (!doc.exists) {
-		//
-		// 	const config = {
-		// 		networkId: "testnet",
-		// 		keyStore: new keyStores.BrowserLocalStorageKeyStore(),
-		// 		nodeUrl: "https://rpc.testnet.near.org",
-		// 		walletUrl: "https://wallet.testnet.near.org",
-		// 		helperUrl: "https://helper.testnet.near.org",
-		// 		explorerUrl: "https://explorer.testnet.near.org",
-		// 	};
-		//
-		// 	// connect to NEAR
-		// 	const near = await nearAPI.connect(config);
-		// 	// create wallet connection
-		// 	const wallet = new nearAPI.WalletConnection(near);
-		// 	wallet.
-		// 	const accountId = this.walletAccount.getAccountId();
-		// }
-
-
+	async function login(payload, commands, fl) {
 		try {
-			// TODO: check if current user is logged in
-			// if not -> redirect to login page
-			// if yes -> response with 'You are already logged in'
+			console.log('login payload', payload)
+			fl.log('login token', payload.token)
+
+			let userDoc = await db.collection('users').doc(createUserDocId(payload.user_name)).get()
+
+			if(!userDoc.exists) {
+				await createUser(payload, commands[1], db)
+				userDoc = await db.collection('users').doc(createUserDocId(payload.user_name)).get()
+			}
+
+			let user = userDoc.data()
+			console.log('login user', user)
+
+			if(user.near_fn_key && !!'TODO: FN key is active') {
+				return 'Login Successful'
+			} else {
+				let login_url = `http://localhost:3000/login/?fb_token=${user.fb_token}`
+				return 'Login with NEAR: '+login_url
+			}
+
 		} catch (e) {
 			console.log('near-cli login err: ', e)
 			return Promise.reject(e)
@@ -120,6 +112,15 @@ module.exports = function (db, functions) {
 
 	}
 
+	async function help () {
+		return (
+			"Available commands:\n" +
+			"/near login near_account.testnet\n" +
+			"/near send near_account_from.testnet near_account_to.testnet amount\n" +
+			"/near view near_account.testnet\n" +
+			"/near call near_account.testnet function_name\n"
+		)
+	}
 	async function hello () {
 		return "Hello from near-cli";
 	}
@@ -130,6 +131,50 @@ module.exports = function (db, functions) {
 		send,
 		view,
 		call,
+		help,
 		hello
 	}
+}
+
+async function createUser(payload, near_account, db) {
+	console.log('createUser', near_account)
+	const fb_token = await getAuth().createCustomToken(createUserDocId(payload.user_name))
+	return db.collection('users').doc(createUserDocId(payload.user_name)).set({
+		near_account: near_account,
+		near_fn_key: '',
+		slack_username: payload.user_name,
+		slack_token: payload.token,
+		team_id: payload.team_id,
+		team_domain: payload.team_domain,
+		api_app_id: payload.api_app_id,
+		channel_name: payload.channel_name,
+		response_url: payload.response_url,
+		fb_token
+	})
+}
+
+async function getUserBySlackAndNearAccs(near_account, slack_username, db) {
+	let user
+
+	let users = await db.collection('users')
+		.where('near_account', '==', near_account)
+		.where('slack_username', '==', slack_username)
+		.get()
+	users.forEach(doc => {
+		if (doc) {
+			console.log(doc.id, '=>', doc.data());
+			user = doc.data()
+		}
+	});
+
+	return user
+}
+
+function createUserDocId(string) {
+	return string
+		.replace(/\./g, '1_1')
+		.replace(/#/g, '2_2')
+		.replace(/\$/g, '3_3')
+		.replace(/\[/g, '4_4')
+		.replace(/]/g, '5_5')
 }

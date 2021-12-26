@@ -1,11 +1,20 @@
 <template>
-  <div class="container mx-auto">
+  <div class="container mx-auto p-12">
     <img class="mx-auto" alt="Vue logo" src="../assets/logo.png" />
 		<div>
 			<button class="test-button" @click="testLoginToken"> Test Login Token</button>
 			<button class="test-button" @click="testLoginNoToken"> Test Login No Token</button>
 			<button class="test-button" @click="testSlackHook('help')"> Test Slack Hook Help</button>
 			<button class="test-button" @click="testSlackHook('login')"> Test Slack Hook Login</button>
+		</div>
+		<div v-if="slackChat.length"
+			class="w-full rounded-lg border-2 border-gray-700 bg-gray-300 text-white">
+			<a v-for="line of slackChat"
+				 class="block overflow-hidden whitespace-nowrap"
+				 :class="{'no-underline hover:underline cursor-pointer': !!extractURL(line)}"
+				 :href="extractURL(line)" target="_blank">
+				{{ line }}
+			</a>
 		</div>
   </div>
 </template>
@@ -16,6 +25,7 @@ export default {
 	name: 'Test',
 	data() {
 		return {
+			slackChat: [],
 			slackHookData: {
 				user_name: 'procc.main',
 				command: '/near',
@@ -58,8 +68,18 @@ export default {
 			// console.log("slackData.text", slackData.token)
 
 			let res = await axios.post('http://localhost:5001/near-api-1d073/us-central1/slackHook', slackData)
-			// console.log('testSlackHook res', res)
+			
+			console.log(`testSlackHook ${command}: `, res)
+			
+			if(res.data)
+				this.slackChat.push(res.data)
 		},
+		extractURL(string){
+			console.log('extractURL string', string)
+			let testUrl = string.match(/(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#\/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[A-Z0-9+&@#\/%=~_|$])/igm)
+			console.log('extractURL', testUrl)
+			return testUrl[0];
+		}
 	}
 }
 </script>

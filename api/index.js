@@ -1,8 +1,10 @@
 process.env.GCLOUD_PROJECT = 'near-api-1d073'
 const { getAnalytics } = require('firebase/analytics')
-const { initializeApp } = require('firebase-admin/app')
+const { initializeApp, cert } = require('firebase-admin/app')
 const { getFirestore } = require('firebase-admin/firestore')
 const functions = require('firebase-functions')
+const fs = require('fs')
+
 
 const firebaseConfig = {
 	apiKey: "AIzaSyCL0TqPIAx-HOb12mWeS7iP_uB-RMYfm1w",
@@ -13,6 +15,10 @@ const firebaseConfig = {
 	appId: "1:77148669093:web:0723fee1a7ba423907394c",
 	measurementId: "G-DGTKFVLVL2"
 };
+if(fs.existsSync('./near-api-1d073-firebase-adminsdk-fyizi-d7f7e50e8c.json')) {
+	const serviceAccount = require("./near-api-1d073-firebase-adminsdk-fyizi-d7f7e50e8c.json");
+	firebaseConfig.credential = cert(serviceAccount)
+}
 
 const firebaseApp = initializeApp(firebaseConfig)
 // console.log('BEFORE ERR 2', firebaseApp)
@@ -74,15 +80,20 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 
 	// fl.log('payload.token', payload.token);
 
-	let response = {message: "Hello from slackHook!"}
+	let response = "Hello from slackHook!"
 	switch (commands[0]) {
 		case 'login':
-			// response = await slack.hello()
-			response = await slack.login(payload.user_name, payload.token, fl)
-			// response = "login"
+			if (!validateNEARAccount(commands[1])) {
+				response = 'Invalid Near Account'
+				break
+			}
+
+			console.log('before slack.login')
+			response = await slack.login(payload, commands, fl)
 			break
 		case 'help':
-			response = 'Help is under development'
+			console.log('before slack.help')
+			response = await slack.help(commands)
 			break
 		default:
 			// fl.log('No such command.');
@@ -103,4 +114,9 @@ async function exampleDBReadWrite() {
 		console.log("User: ", doc.id, '=>', doc.data());
 	});
 
+}
+
+function validateNEARAccount(account) {
+	console.log('before validateNEARAccount')
+	return /[a-z0-9]*\.[a-z0-9]*/.test(account)
 }
