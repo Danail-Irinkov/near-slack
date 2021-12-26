@@ -21,6 +21,7 @@
 
 <script>
 import * as nearAPI from 'near-api-js'
+// import { collection, doc, setDoc } from "firebase/firestore"; 
 
 import NearLoginButton from '../components/NearLoginButton.vue'
 
@@ -93,7 +94,7 @@ export default {
 		this.walletAccount = new nearAPI.WalletConnection(this.near);
 		this.accountId = this.walletAccount.getAccountId();
 
-		const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
+		// const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
 		
 		console.log("config.keyStore", key);
 	},
@@ -106,10 +107,10 @@ export default {
 
 
 
-			// this.walletAccount.requestSignIn(
-			// 	this.naer,
-			// 	'Authorize Slack NEAR?'
-			// );
+			this.walletAccount.requestSignIn(
+				this.naer,
+				'Authorize Slack NEAR?'
+			);
 		}
 	}
 }
