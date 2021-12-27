@@ -27,7 +27,7 @@ export default {
 		return {
 			slackChat: [],
 			slackHookData: {
-				user_name: 'procc.main',
+				user_name: 'procc.main2',
 				command: '/near',
 				team_domain: 'proccmaingmai-tc79872',
 				token: 'gh18PaaAfvc2I0W7SJzcPOkY',
@@ -78,7 +78,8 @@ export default {
 			console.log('extractURL string', string)
 			let testUrl = string.match(/(?:(?:https?|ftp|file):\/\/|www\.|ftp\.)(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[-A-Z0-9+&@#\/%=~_|$?!:,.])*(?:\([-A-Z0-9+&@#\/%=~_|$?!:,.]*\)|[A-Z0-9+&@#\/%=~_|$])/igm)
 			console.log('extractURL', testUrl)
-			return testUrl[0];
+
+			return testUrl ? testUrl[0] : '#';
 		}
 	}
 }

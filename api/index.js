@@ -117,6 +117,9 @@ async function exampleDBReadWrite() {
 }
 
 function validateNEARAccount(account) {
+
+	// TODO: after the dot we should check for either testnet or mainnet
+
 	console.log('before validateNEARAccount')
 	return /[a-z0-9]*\.[a-z0-9]*/.test(account)
 }

@@ -73,6 +73,7 @@ module.exports = function (db, functions) {
 				return 'Login Successful'
 			} else {
 				let login_url = `http://localhost:3000/login/?fb_token=${user.fb_token}`
+				// TODO: add a button with the url because the url is too long
 				return 'Login with NEAR: '+login_url
 			}
 
