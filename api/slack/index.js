@@ -56,7 +56,7 @@ module.exports = function (db, functions) {
 
 	async function login(payload, commands, fl) {
 		try {
-			console.log('login payload', payload)
+			// console.log('login payload', payload)
 			fl.log('login token', payload.token)
 
 			let userDoc = await db.collection('users').doc(createUserDocId(payload.user_name)).get()
@@ -67,18 +67,39 @@ module.exports = function (db, functions) {
 			}
 
 			let user = userDoc.data()
-			console.log('login user', user)
+			// console.log('login user', user)
 
 			if(user.near_fn_key && !!'TODO: FN key is active') {
-				return 'Login Successful'
+				return { text: 'Login Successful' }
 			} else {
-				let login_url = `http://localhost:3000/login/?fb_token=${user.fb_token}`
+				// TODO: Introduce an env variable to determine routing
+				// let login_url = `http://localhost:3000/login/?fb_token=${user.fb_token}`
+				let login_url = `https://near-api-1d073.firebaseapp.com/login/?fb_token=${user.fb_token}`
 				// TODO: add a button with the url because the url is too long
-				return 'Login with NEAR: '+login_url
+				fl.log('login login_url', login_url)
+				return {
+					text: 'Connect Slack with your NEAR account',
+					channel: payload.channel_id,
+					attachments: [
+						{
+							fallback: login_url,
+							color: "#4fcae0",
+							attachment_type: "default",
+							actions: [
+								{
+									type: "button",
+									style: "primary",
+									text: "Connect NEAR Wallet",
+									url: login_url
+								}
+							]
+						}
+					]
+				}
 			}
 
 		} catch (e) {
-			console.log('near-cli login err: ', e)
+			fl.log('near-cli login err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -116,10 +137,10 @@ module.exports = function (db, functions) {
 	async function help () {
 		return (
 			"Available commands:\n" +
-			"/near login near_account.testnet\n" +
-			"/near send near_account_from.testnet near_account_to.testnet amount\n" +
-			"/near view near_account.testnet\n" +
-			"/near call near_account.testnet function_name\n"
+			"/near login nearAccount - Connect your NEAR account\n" +
+			"/near send fromNearAccount toNearAccount amount - Sends tokens from one account to another\n" +
+			"/near view contractName methodName - Invokes a contract's view method\n" +
+			"/near call contractName methodName - Invokes a contract's change method\n"
 		)
 	}
 	async function hello () {

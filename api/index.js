@@ -4,6 +4,9 @@ const { initializeApp, cert } = require('firebase-admin/app')
 const { getFirestore } = require('firebase-admin/firestore')
 const functions = require('firebase-functions')
 const fs = require('fs')
+const axios = require('axios')
+const {PubSub} = require('@google-cloud/pubsub');
+const pubsub = new PubSub();
 
 
 const firebaseConfig = {
@@ -64,9 +67,29 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 		// return res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/slackAuthFailed.html`).send(302);
 	}
 });
+exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
+	console.log('loginPubSub Start')
+	// console.log('loginPubSub Start', message)
+	if (!message.data) return
+
+	try {
+		const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+		// console.log('loginPubSub data', data)
+		const payload = data.payload
+		const commands = data.commands
+		// console.log('loginPubSub payload', payload)
+		// console.log('loginPubSub commands', commands)
+
+		let login_data = await slack.login(payload, commands, fl)
+		fl.log('slack.login Success Start'+JSON.stringify(login_data))
+
+		await sendDataToResponseURL(payload.response_url, login_data)
+	} catch (e) {
+		fl.log('loginPubSub err: '+JSON.stringify(e))
+	}
+});
 
 exports.slackHook = functions.https.onRequest(async (req, res) => {
-
 	// CORS enabled
 	res.set('Access-Control-Allow-Origin' , '*');
 	res.set('Access-Control-Allow-Methods', 'POST');
@@ -87,9 +110,23 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				response = 'Invalid Near Account'
 				break
 			}
-
 			console.log('before slack.login')
-			response = await slack.login(payload, commands, fl)
+
+			// Needed to workaround Slack timeout limit (using PubSUb)
+			// Maximum execution time for slack hook is 2.5sec, this login takes 4-5sec, so delaying the response
+			const topic = pubsub.topic('slackLoginFlow');
+
+			const messageObject = {
+					payload: payload,
+					commands: commands
+			};
+			const messageBuffer = Buffer.from(JSON.stringify(messageObject), 'utf8');
+
+			// Publishes a message
+			await topic.publish(messageBuffer);
+			//END  (using PubSUb)
+
+			response = 'Initializing account...'
 			break
 		case 'help':
 			console.log('before slack.help')
@@ -98,7 +135,11 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		default:
 			// fl.log('No such command.');
 	}
-	res.send(response);
+
+	if(response)
+		res.send(response)
+	else
+		res.end()
 })
 async function exampleDBReadWrite() {
 	const docRef = db.collection('users').doc('alovelace');
@@ -122,4 +163,14 @@ function validateNEARAccount(account) {
 
 	console.log('before validateNEARAccount')
 	return /[a-z0-9]*\.[a-z0-9]*/.test(account)
+}
+
+function sendDataToResponseURL(response_url, data) {
+	return axios.post(response_url, data,
+		{
+			headers: {
+				"Content-Type": "application/x-www-form-urlencoded",
+			},
+		})
+		.catch((e)=>fl.log('axios post to response_url FAILED:  '+response_url+' - '+JSON.stringify(data)+'\n'+JSON.stringify(e)))
 }
