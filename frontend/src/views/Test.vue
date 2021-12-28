@@ -6,6 +6,7 @@
 			<button class="test-button" @click="testLoginNoToken"> Test Login No Token</button>
 			<button class="test-button" @click="testSlackHook('help')"> Test Slack Hook Help</button>
 			<button class="test-button" @click="testSlackHook('login')"> Test Slack Hook Login</button>
+			<button class="test-button" @click="testSlackHook('view')"> Test Slack Hook View</button>
 		</div>
 		<div v-if="slackChat.length"
 			class="w-full rounded-lg border-2 border-gray-700 bg-gray-300 text-white">
@@ -60,6 +61,9 @@ export default {
 					break;
 				case "login":
 					slackData.text = "login maix.testnet";
+					break;
+				case "view":
+					slackData.text = "view devtest.testnet whoSaidHi";
 					break;
 				default:
 					console.error("No command specified")

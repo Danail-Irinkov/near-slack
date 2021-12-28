@@ -3,7 +3,7 @@ import * as admin from "firebase-admin";
 // @ts-ignore
 import * as rp from "request-promise";
 
-admin.initializeApp(functions.config().firebase);
+// admin.initializeApp(functions.config().firebase);
 
 const SLACK_ACTION_REQUEST_PING = "ping-pong";
 

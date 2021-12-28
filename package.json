@@ -9,7 +9,8 @@
     "serve": "vite preview frontend",
     "apii": "cd api && npm i",
     "apid": "cd api && firebase deploy",
-    "apie": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase emulators:start --only functions"
+    "apie": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase emulators:start --only functions",
+    "apied": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase --debug emulators:start --only functions"
   },
   "dependencies": {
     "@firebase/firestore": "^3.4.1",
@@ -19,6 +20,7 @@
     "firebase": "^9.6.1",
     "firebase-admin": "^10.0.1",
     "near-api-js": "^0.44.2",
+    "url": "^0.11.0",
     "vite-plugin-windicss": "^1.0.4",
     "vue": "^3.0.5",
     "vue-router": "^4.0.12"

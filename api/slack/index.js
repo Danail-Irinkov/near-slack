@@ -1,7 +1,8 @@
 const { InstallProvider } = require('@slack/oauth');
-const { firebaseConfig } = require('firebase-functions/v1');
+// const { firebaseConfig } = require('firebase-functions/v1');
 const { getAuth } = require('firebase-admin/auth')
-
+const near = require('../near')
+// const near = {}
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -115,9 +116,18 @@ module.exports = function (db, functions) {
 		}
 
 	}
-	async function view () {
+	async function view (payload, commands, fl) {
 		try {
-
+			let options = near.getConnectOptions(null,
+				near.getNetworkFromAccount(commands[1]),
+				{
+					accountId: commands[1],
+					contractName: commands[1],
+					methodName: commands[2],
+				})
+			let result = await near.callViewFunction(options)
+			console.log('SLACK view result', result)
+			return commands[2]+'(): '+stringifyResponse(result)
 		} catch (e) {
 			console.log('near-cli view err: ', e)
 			return Promise.reject(e)
@@ -134,14 +144,41 @@ module.exports = function (db, functions) {
 
 	}
 
-	async function help () {
-		return (
-			"Available commands:\n" +
-			"/near login nearAccount - Connect your NEAR account\n" +
-			"/near send fromNearAccount toNearAccount amount - Sends tokens from one account to another\n" +
-			"/near view contractName methodName - Invokes a contract's view method\n" +
-			"/near call contractName methodName - Invokes a contract's change method\n"
-		)
+	async function help (commands) {
+		let help = 'Available commands:\n' +
+			'login, send, view and call\n' +
+			'for more details use /near help {command}'
+		if (!commands[1])
+			return help
+
+		switch (commands[1]) {
+			case 'login':
+				help = 'Connect NEAR wallet -> /near login {your NEAR account}'
+				break
+			case 'send':
+				help = 'Transfer NEAR tokens to another account\n' +
+					'/near send {your NEAR account} {to NEAR account} {amount}\n' +
+					'amount format is in NEAR tokens, for ex. 12.025\n' +
+					'Note: You will need a full access key for the sending account (/near login)'
+				break
+			case 'view':
+				help = 'Get result from a contract\'s View method\n' +
+					'/near view {contract account} {method name} {arguments}\n' +
+					'arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}}\n' +
+					'Note: Call is free of charge'
+				break
+			case 'call':
+				help = 'Post request to a contract\'s Change method\n' +
+					'/near call {contract account} {method name} {arguments}\n' +
+					'arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}}\n' +
+					'Note: Change method calls require a transaction fee (gas)\n'+
+					'Your logged in account will be charged ~0.00025 NEAR (/near login)'
+				break
+			default:
+				help = 'We haven\'t added "' + commands[1] + '" command yet ;)'
+		}
+
+		return help
 	}
 	async function hello () {
 		return "Hello from near-cli";
@@ -199,4 +236,12 @@ function createUserDocId(string) {
 		.replace(/\$/g, '3_3')
 		.replace(/\[/g, '4_4')
 		.replace(/]/g, '5_5')
+}
+function stringifyResponse(near_res) {
+	if (typeof near_res === 'string')
+		return near_res
+	else if (typeof near_res === 'object' || near_res instanceof Array)
+		return JSON.stringify(near_res, null, 2)
+	else
+		return String(near_res)
 }

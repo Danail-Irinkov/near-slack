@@ -1,20 +1,33 @@
 const { connect: nearConnect, utils, providers, KeyPair, transactions} = require('near-api-js')
-const chalk = require('chalk')
-const inspectResponse = require('./utils/inspect-response')
-const checkCredentials = require('./utils/check-credentials')
-const eventtracking = require('./utils/eventtracking')
+// const chalk = require('chalk')
+// const inspectResponse = require('./utils/inspect-response')
+// const checkCredentials = require('./utils/check-credentials')
+// const eventtracking = require('./utils/eventtracking')
 const {URL} = require('url')
-const capture = require('./utils/capture-login-success')
-const readline = require('readline')
+// const capture = require('./utils/capture-login-success')
+// const readline = require('readline')
 const verify = require('./utils/verify-account')
 const fs = require('fs')
+const config = require('./config')
+const open = require('open')
 
 async function connect({ keyStore, ...options }) {
 	// TODO: Avoid need to wrap in deps
 	return await nearConnect({ ...options, deps: { keyStore }});
 }
 
-exports.viewAccount = async function (options) {
+function getNetworkFromAccount(near_account) {
+	return near_account.split('.').pop()
+}
+function getConnectOptions(keyStore, network, additional_options = {}) {
+	return {
+		...config(network),
+		...additional_options,
+		deps: { keyStore }
+	}
+}
+
+async function viewAccount(options) {
 	let near = await connect(options);
 	let account = await near.account(options.accountId);
 	let state = await account.state();
@@ -22,7 +35,7 @@ exports.viewAccount = async function (options) {
 		state['formattedAmount'] = utils.format.formatNearAmount(state.amount);
 	}
 	console.log(`Account ${options.accountId}`);
-	console.log(inspectResponse.formatResponse(state));
+	// console.log(inspectResponse.formatResponse(state));
 };
 async function scheduleFunctionCall(options) {
 	await checkCredentials(options.accountId, options.networkId, options.keyStore);
@@ -43,8 +56,8 @@ async function scheduleFunctionCall(options) {
 			attachedDeposit: deposit,
 		});
 		const result = providers.getTransactionLastResult(functionCallResponse);
-		inspectResponse.prettyPrintResponse(functionCallResponse, options);
-		console.log(inspectResponse.formatResponse(result));
+		// inspectResponse.prettyPrintResponse(functionCallResponse, options);
+		// console.log(inspectResponse.formatResponse(result));
 	} catch (error) {
 		switch (JSON.stringify(error.kind)) {
 			case '{"ExecutionError":"Exceeded the prepaid gas."}': {
@@ -61,7 +74,7 @@ async function callViewFunction(options) {
 	console.log(`View call: ${options.contractName}.${options.methodName}(${options.args || ''})`);
 	const near = await connect(options);
 	const account = await near.account(options.accountId || options.masterAccount || options.contractName);
-	console.log(inspectResponse.formatResponse(await account.viewFunction(options.contractName, options.methodName, JSON.parse(options.args || '{}'))));
+	return account.viewFunction(options.contractName, options.methodName, JSON.parse(options.args || '{}'))
 }
 async function sendMoney (options) {
 	await checkCredentials(options.sender, options.networkId, options.keyStore);
@@ -69,7 +82,7 @@ async function sendMoney (options) {
 	const near = await connect(options);
 	const account = await near.account(options.sender);
 	const result = await account.sendMoney(options.receiver, utils.format.parseNearAmount(options.amount));
-	inspectResponse.prettyPrintResponse(result, options);
+	// inspectResponse.prettyPrintResponse(result, options);
 }
 
 // TODO: Rework near-cli deploy to work with our backend
@@ -91,7 +104,7 @@ async function deploy(options) {
 		if (options.initFunction) {
 			if (!options.initArgs) {
 				console.error('Must add initialization arguments.\nExample: near deploy --accountId near.testnet --initFunction "new" --initArgs \'{"key": "value"}\'');
-				await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: false, error: 'Must add initialization arguments' }, options);
+				// await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: false, error: 'Must add initialization arguments' }, options);
 				process.exit(1);
 			}
 			txs.push(transactions.functionCall(
@@ -106,20 +119,20 @@ async function deploy(options) {
 			receiverId: options.accountId,
 			actions: txs
 		});
-		inspectResponse.prettyPrintResponse(result, options);
+		// inspectResponse.prettyPrintResponse(result, options);
 		let state = await account.state();
 		let codeHash = state.code_hash;
-		await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: true, code_hash: codeHash, is_same_contract: prevCodeHash === codeHash, contract_id: options.accountId }, options);
-		eventtracking.trackDeployedContract();
+		// await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: true, code_hash: codeHash, is_same_contract: prevCodeHash === codeHash, contract_id: options.accountId }, options);
+		// eventtracking.trackDeployedContract();
 		console.log(`Done deploying ${options.initFunction ? 'and initializing' : 'to'} ${options.accountId}`);
 	}
 };
 // TODO: Rework near-cli login to work with our backend and skip frontend Connection step
 async function login(options) {
-	await eventtracking.askForConsentIfNeeded(options);
+	// await eventtracking.askForConsentIfNeeded(options);
 	if (!options.walletUrl) {
 		console.log('Log in is not needed on this environment. Please use appropriate master account for shell operations.');
-		await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success: true, login_is_not_needed: true }, options);
+		// await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success: true, login_is_not_needed: true }, options);
 	} else {
 		const newUrl = new URL(options.walletUrl + '/login/');
 		const referrer = 'NEAR CLI';
@@ -127,7 +140,7 @@ async function login(options) {
 		const keyPair = await KeyPair.fromRandom('ed25519');
 		newUrl.searchParams.set('public_key', keyPair.getPublicKey());
 
-		console.log(chalk`\n{bold.yellow Please authorize NEAR CLI} on at least one of your accounts.`);
+		console.log(`\n{bold.yellow Please authorize NEAR CLI} on at least one of your accounts.`);
 
 		// attempt to capture accountId automatically via browser callback
 		let tempUrl;
@@ -136,7 +149,7 @@ async function login(options) {
 		// find a callback URL on the local machine
 		try {
 			if (!isWin) { // capture callback is currently not working on windows. This is a workaround to not use it
-				tempUrl = await capture.callback(5000);
+				// tempUrl = await capture.callback(5000);
 			}
 		} catch (error) {
 			// console.error("Failed to find suitable port.", error.message)
@@ -159,25 +172,25 @@ async function login(options) {
 			openUrl(newUrl);
 		}
 
-		console.log(chalk`\n{dim If your browser doesn't automatically open, please visit this URL\n${newUrl.toString()}}`);
+		console.log(`\n{dim If your browser doesn't automatically open, please visit this URL\n${newUrl.toString()}}`);
 
 		const getAccountFromWebpage = async () => {
 			// capture account_id as provided by NEAR Wallet
-			const [accountId] = await capture.payload(['account_id'], tempUrl, newUrl);
+			// const [accountId] = await capture.payload(['account_id'], tempUrl, newUrl);
 			return accountId;
 		};
 
-		const rl = readline.createInterface({
-			input: process.stdin,
-			output: process.stdout
-		});
+		// const rl = readline.createInterface({
+		// 	input: process.stdin,
+		// 	output: process.stdout
+		// });
 		const redirectAutomaticallyHint = tempUrl ? ' (if not redirected automatically)' : '';
 		const getAccountFromConsole = async () => {
 			return await new Promise((resolve) => {
 				rl.question(
-					chalk`Please authorize at least one account at the URL above.\n\n` +
-					chalk`Which account did you authorize for use with NEAR CLI?\n` +
-					chalk`{bold Enter it here${redirectAutomaticallyHint}:}\n`, async (accountId) => {
+					`Please authorize at least one account at the URL above.\n\n` +
+					`Which account did you authorize for use with NEAR CLI?\n` +
+					`{bold Enter it here${redirectAutomaticallyHint}:}\n`, async (accountId) => {
 						resolve(accountId);
 					});
 			});
@@ -197,19 +210,39 @@ async function login(options) {
 					.catch(reject);
 			});
 		}
-		rl.close();
-		capture.cancel();
+		// rl.close();
+		// capture.cancel();
 		// verify the accountId if we captured it or ...
 		try {
 			const success = await verify(accountId, keyPair, options);
-			await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success }, options);
+			// await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success }, options);
 		} catch (error) {
-			await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success: false, error }, options);
+			// await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success: false, error }, options);
 			console.error('Failed to verify accountId.', error.message);
 		}
 	}
-};
+}
 function handleExceededThePrepaidGasError(error, options) {
-	console.log(chalk.bold(`\nTransaction ${error.transaction_outcome.id} had ${options.gas} of attached gas but used ${error.transaction_outcome.outcome.gas_burnt} of gas`));
-	console.log('View this transaction in explorer:', chalk.blue(`https://explorer.${options.networkId}.near.org/transactions/${error.transaction_outcome.id}`));
+	console.log(`\nTransaction ${error.transaction_outcome.id} had ${options.gas} of attached gas but used ${error.transaction_outcome.outcome.gas_burnt} of gas`);
+	console.log('View this transaction in explorer:', `https://explorer.${options.networkId}.near.org/transactions/${error.transaction_outcome.id}`);
+}
+// open a given URL in browser in a safe way.
+async function openUrl(url) {
+	try {
+		await open(url.toString());
+	} catch (error) {
+		console.error(`Failed to open the URL [ ${url.toString()} ]`, error);
+	}
+}
+
+module.exports = {
+	connect,
+	getNetworkFromAccount,
+	getConnectOptions,
+	viewAccount,
+	scheduleFunctionCall,
+	callViewFunction,
+	sendMoney,
+	deploy,
+	login,
 }
