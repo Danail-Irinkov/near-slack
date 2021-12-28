@@ -67,6 +67,7 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 		// return res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/slackAuthFailed.html`).send(302);
 	}
 });
+
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
 	console.log('loginPubSub Start')
 	// console.log('loginPubSub Start', message)
@@ -141,6 +142,81 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 	else
 		res.end()
 })
+
+const { connect, account, keyStores, WalletConnection, KeyPair, utils, Contract} = require('near-api-js')
+
+exports.send = functions.https.onRequest(async (req, res) => {	
+
+	// This key can be found in the browser local storage when you are logged in to https://wallet.testnet.near.org/
+	// this is the key for maix2.testnet
+	const private_key = "ed25519:2uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; //full access	
+	// this is the key for maix.testnet
+	// const private_key = "ed25519:3cUC27BLE7JnoiDUGFbbc7mcTLjMcSZish3cWjnjmm1yK7TPM44LzsWFzmAQAiTsiHUtjfjrJPGn9spLXkjgjniP"; //full access	
+	// this is the key for maix2.testnet but changed the first letter after the eliptic curve e.g. ed25519:2.. to ed25519:1..
+	// const invalid_private_key = "ed25519:1uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; // using to test what happens if we get the wrong key
+	// changing  ed25519 to ed25512 gives unknown curve error
+	// changing the value after ed25519 gives us Error: bad secret key size
+	// using a valid key but from a different account gives us 
+	// Error: Can not sign transactions for account maix2.testnet on network testnet, no matching key pair found in InMemorySigner(InMemoryKeyStore).
+	const key_pair = KeyPair.fromString(private_key);
+	const key_store = new keyStores.InMemoryKeyStore();
+	key_store.setKey("testnet", "maix2.testnet", key_pair);
+
+	// console.log(key_store.toString())
+
+	const config = {
+		networkId: "testnet",
+		keyStore: key_store,
+		nodeUrl: "https://rpc.testnet.near.org",
+		walletUrl: "https://wallet.testnet.near.org",
+		helperUrl: "https://helper.testnet.near.org",
+		explorerUrl: "https://explorer.testnet.near.org",
+	};
+	
+	// sends NEAR tokens
+	const near = await connect(config);
+	const account = await near.account("maix2.testnet");
+	const outcome = await account.sendMoney(
+		"maix.testnet", // receiver account
+		`2${'0'.repeat(24)}` // amount in yoctoNEAR meaning 10^-24 NEAR
+	);
+
+	console.log(outcome)
+
+	res.send("Hello from Firebaseasdasd!");
+});
+
+exports.view = functions.https.onRequest(async (req, res) => {	
+
+	// This key can be found in the browser local storage when you are logged in to https://wallet.testnet.near.org/
+	const private_key = "ed25519:2uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; //full access
+	const key_pair = KeyPair.fromString(private_key);
+	const key_store = new keyStores.InMemoryKeyStore(key_pair);
+	key_store.setKey("testnet", "maix2.testnet", key_pair);
+
+	const config = {
+		networkId: "testnet",
+		keyStore: key_store,
+		nodeUrl: "https://rpc.testnet.near.org",
+		walletUrl: "https://wallet.testnet.near.org",
+		helperUrl: "https://helper.testnet.near.org",
+		explorerUrl: "https://explorer.testnet.near.org",
+	};
+	
+	// sends NEAR tokens
+	const near = await connect(config);
+	const account = await near.account("maix2.testnet");
+	const outcome =await account.sendMoney(
+		"maix.testnet", // receiver account
+		"1000000000000000000000000" // amount in yoctoNEAR
+	);
+
+	console.log(outcome)
+
+	res.send("Hello from Firebaseasdasd!");
+});
+
+
 async function exampleDBReadWrite() {
 	const docRef = db.collection('users').doc('alovelace');
 	let result = await docRef.set({
