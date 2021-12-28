@@ -247,7 +247,7 @@ function validateNEARAccount(account) {
 	// TODO: after the dot we should check for either testnet or mainnet
 
 	console.log('before validateNEARAccount')
-	return /[a-z0-9]*\.[(near),(testnet)]*/.test(account)
+	return /[a-z0-9]*\.(near|testnet)/.test(account)
 }
 
 function sendDataToResponseURL(response_url, data) {
