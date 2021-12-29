@@ -4,6 +4,11 @@ import router from './router'
 import App from './App.vue'
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from "firebase/firestore"
+import { Buffer } from 'buffer'
+
+if (window) {
+	window.Buffer = Buffer
+}
 
 const app = Vue.createApp(App)
 
