@@ -7,6 +7,7 @@
 			<button class="test-button" @click="testSlackHook('help')"> Test Slack Hook Help</button>
 			<button class="test-button" @click="testSlackHook('login')"> Test Slack Hook Login</button>
 			<button class="test-button" @click="testSlackHook('view')"> Test Slack Hook View</button>
+			<button class="test-button" @click="testSlackHook('send')"> Test Slack Hook Send</button>
 		</div>
 		<div v-if="slackChat.length"
 			class="w-full rounded-lg border-2 border-gray-700 bg-gray-300 text-white">

@@ -2,12 +2,14 @@ import * as VueRouter from 'vue-router'
 import Home from '../views/Home.vue'
 import Test from '../views/Test.vue'
 import Login from '../views/Login.vue'
+import Send from '../views/Send.vue'
 
 
 const routes = [
 	{ path: '/', component: Home },
 	{ path: '/test', component: Test },
 	{ path: '/login', component: Login },
+	{ path: '/send', component: Send },
 ]
 
 // 3. Create the router instance and pass the `routes` option

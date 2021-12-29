@@ -138,6 +138,14 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			console.log('before slack.view')
 			response = await slack.view(payload, commands, fl)
 			break
+		case 'send':
+			if (!validateNEARAccount(commands[1])) {
+				response = 'Invalid Near Account'
+				break
+			}
+			console.log('before slack.view')
+			response = await slack.view(payload, commands, fl)
+			break
 		case 'help':
 			console.log('before slack.help')
 			response = await slack.help(commands)
