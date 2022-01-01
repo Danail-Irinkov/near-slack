@@ -3,6 +3,7 @@ import Home from '../views/Home.vue'
 import Test from '../views/Test.vue'
 import Login from '../views/Login.vue'
 import Send from '../views/Send.vue'
+import Redirection from '../views/Redirection.vue'
 
 
 const routes = [
@@ -10,6 +11,7 @@ const routes = [
 	{ path: '/test', component: Test },
 	{ path: '/login', component: Login },
 	{ path: '/send', component: Send },
+	{ path: '/redirection', component: Redirection },
 ]
 
 // 3. Create the router instance and pass the `routes` option

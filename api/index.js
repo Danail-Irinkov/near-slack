@@ -61,11 +61,35 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 
 		await slack.installer.handleCallback(req, res)
 
-		res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/slackAuthSuccess.html`).send(302);
+		res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=success&key=slack`).send(302);
 	} catch (e) {
 		fl.error(e)
 		// return res.status(502).end()
-		// return res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/slackAuthFailed.html`).send(302);
+		return res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=success&key=slack`).send(302);
+	}
+});
+
+exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
+	try {
+		if(!req.query.account_id || !req.query.all_keys) return res.status(502).end('Missing required fields')
+		fl.log(req.query, 'nearLoginRedirect query')
+
+		let { user, doc_id, contract_id } = await getUserByNearAccountAndPublicKey(req.query.account_id, req.query.public_key)
+		let userDoc = db.collection('users').doc(doc_id)
+		if (req.query.all_keys && req.query.public_key) {
+			await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'active' })
+
+			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=success&key=function&contract_id=${req.query.contract_id}`).send(302);
+		} else {
+			if(contract_id)
+				await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'failed' })
+
+			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=failure&key=function&contract_id=${req.query.contract_id}`).send(302);
+		}
+		res.end()
+	} catch (e) {
+		fl.error(e)
+		return res.status(502).end('Oops, this is our fault, NEAR Login Redirect has Failed')
 	}
 });
 
@@ -97,141 +121,223 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 	res.set('Access-Control-Allow-Methods', 'POST');
 	res.set('Access-Control-Allow-Headers', '*');
 
-	let payload = req.body;
-	// fl.log('slackHook payload', payload);
-	let commands = String(payload.text).split(' ');
-	// fl.log('slackHook commands', commands, count++);
-	// fl.log('slackHook commands[0]', commands[0]);
+	try {
+		let payload = {...req.body};
+		let payload2 = {}
+		fl.log('slackHook payload', payload);
+		// console.log('slackHook payload.payload', payload.payload);
+		if(payload.payload) {
+			payload2 = JSON.parse(payload.payload);
+			console.log('slackHook payload.callback_id', payload2.callback_id);
+			console.log('slackHook payload.callback_id', payload2.callback_id);
+		}
+		if(payload2.user) { //In case of coming from Interactive buttons username is located in a different place ...
+			payload = {...payload2}
+			fl.log('slackHook 2payload: ', payload);
+			payload.user_name = payload2.user.name;
+			console.log('slackHook payload.user_name', payload.user_name);
+		}
+		let commands = String(payload.text).split(' ');
 
-	// fl.log('payload.token', payload.token);
-
-	let response = "Hello from Slack App. Try a different command or /near help"
-	switch (commands[0]) {
-		case 'login':
-			if (!validateNEARAccount(commands[1])) {
-				response = 'Invalid Near Account'
-				break
+		// Handling Payload from Interactive Help Menu
+		if (payload2 && payload2.actions && payload2.actions[0]) {
+			console.log('slackHook payload2.actions[0]', payload2.actions[0]);
+			if(payload2.actions[0].selected_options && payload2.actions[0].selected_options[0]) {
+				commands = String(payload2.actions[0].selected_options[0].value).split(' ')
+			} else if (payload2.actions[0]) {
+				console.log('slackHook payload2.actions[0].value', payload2.actions[0].value);
+				commands = String(payload2.actions[0].value).split(' ')
 			}
-			console.log('before slack.login')
+		}
+		// Handling Payload from Interactive Help Menu - END
 
-			// Needed to workaround Slack timeout limit (using PubSUb)
-			// Maximum execution time for slack hook is 2.5sec, this login takes 4-5sec, so delaying the response
-			const topic = pubsub.topic('slackLoginFlow');
+		// fl.log('slackHook commands', commands, count++);
+		fl.log('slackHook commands', commands);
 
-			const messageObject = {
-					payload: payload,
-					commands: commands
-			};
-			const messageBuffer = Buffer.from(JSON.stringify(messageObject), 'utf8');
+		// fl.log('payload.token', payload.token);
 
-			// Publishes a message
-			await topic.publish(messageBuffer);
-			//END  (using PubSUb)
+		let response = "Hello from Slack App. Try a different command or /near help"
+		switch (commands[0]) {
+			case 'login':
+				// if (!validateNEARAccount(commands[1])) {
+				// 	response = 'Invalid Near Account'
+				// 	break
+				// }
+				console.log('before slack.login')
 
-			response = 'Initializing account...'
-			break
-		case 'view':
-			if (!validateNEARAccount(commands[1])) {
-				response = 'Invalid Near Account'
+				// Needed to workaround Slack timeout limit (using PubSUb)
+				// Maximum execution time for slack hook is 2.5sec, this login takes 4-5sec, so delaying the response
+				const topic = pubsub.topic('slackLoginFlow');
+
+				const messageObject = {
+						payload: payload,
+						commands: commands
+				};
+				const messageBuffer = Buffer.from(JSON.stringify(messageObject), 'utf8');
+
+				// Publishes a message
+				await topic.publish(messageBuffer);
+				//END  (using PubSUb)
+
+				response = 'Initializing account...'
 				break
-			}
-			console.log('before slack.view')
-			response = await slack.view(payload, commands, fl)
-			break
-		case 'send':
-			if (!validateNEARAccount(commands[1])) {
-				response = 'Invalid Near Account'
+			case 'account':
+				console.log('before slack.account')
+				if (!commands[1]) { // account missing, Getting logged in account for slack user
+					console.time('account db.collection(users)')
+					let user = await db.collection('users').doc(slack.createUserDocId(payload.user_name)).get()
+					console.timeEnd('account db.collection(users)')
+					commands.push(user.data().near_account)
+				}
+
+				if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+
+				response = await slack.account(payload, commands, fl)
 				break
-			}
-			console.log('before slack.view')
-			response = await slack.view(payload, commands, fl)
-			break
-		case 'help':
-			console.log('before slack.help')
-			response = await slack.help(commands)
-			break
-		default:
-			// fl.log('No such command.');
+			case 'keys':
+				console.log('before slack.keys')
+				if (!commands[1]) { // account missing, Getting logged in account for slack user
+					console.time('keys db.collection(users)')
+					let user = await db.collection('users').doc(slack.createUserDocId(payload.user_name)).get()
+					console.timeEnd('keys db.collection(users)')
+					commands.push(user.data().near_account)
+				}
+
+				if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+
+				response = await slack.keys(payload, commands, fl)
+				break
+			case 'call':
+				if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+				if (!commands[2]) {
+					response = 'Missing Call Method Name'
+					break
+				}
+				console.log('before slack.call')
+				response = await slack.call(payload, commands, fl)
+				break
+			case 'view':
+				if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+				if (!commands[2]) {
+					response = 'Missing View Method Name'
+					break
+				}
+				console.log('before slack.view')
+				response = await slack.view(payload, commands, fl)
+				break
+			case 'send':
+				if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+				console.log('before slack.view')
+				response = await slack.view(payload, commands, fl)
+				break
+			case 'help':
+				console.log('before slack.help')
+				response = await slack.help(commands)
+				break
+			default:
+				// fl.log('No such command.');
+		}
+
+		if(response) {
+			if (typeof response === 'string')
+				response = { text: response }
+			res.send(response)
+		} else
+			res.end()
+	} catch (e){
+		fl.log(e, 'slackHook ERROR: ')
+		let err_msg = formatErrorMsg(e)
+		res.send(err_msg)
 	}
-
-	if(response)
-		res.send(response)
-	else
-		res.end()
 })
 
 const { connect, account, keyStores, WalletConnection, KeyPair, utils, Contract} = require('near-api-js')
-
-exports.send = functions.https.onRequest(async (req, res) => {
-
-	// This key can be found in the browser local storage when you are logged in to https://wallet.testnet.near.org/
-	// this is the key for maix2.testnet
-	const private_key = "ed25519:2uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; //full access
-	// this is the key for maix.testnet
-	// const private_key = "ed25519:3cUC27BLE7JnoiDUGFbbc7mcTLjMcSZish3cWjnjmm1yK7TPM44LzsWFzmAQAiTsiHUtjfjrJPGn9spLXkjgjniP"; //full access
-	// this is the key for maix2.testnet but changed the first letter after the eliptic curve e.g. ed25519:2.. to ed25519:1..
-	// const invalid_private_key = "ed25519:1uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; // using to test what happens if we get the wrong key
-	// changing  ed25519 to ed25512 gives unknown curve error
-	// changing the value after ed25519 gives us Error: bad secret key size
-	// using a valid key but from a different account gives us
-	// Error: Can not sign transactions for account maix2.testnet on network testnet, no matching key pair found in InMemorySigner(InMemoryKeyStore).
-	const key_pair = KeyPair.fromString(private_key);
-	const key_store = new keyStores.InMemoryKeyStore();
-	key_store.setKey("testnet", "maix2.testnet", key_pair);
-
-	// console.log(key_store.toString())
-
-	const config = {
-		networkId: "testnet",
-		keyStore: key_store,
-		nodeUrl: "https://rpc.testnet.near.org",
-		walletUrl: "https://wallet.testnet.near.org",
-		helperUrl: "https://helper.testnet.near.org",
-		explorerUrl: "https://explorer.testnet.near.org",
-	};
-
-	// sends NEAR tokens
-	const near = await connect(config);
-	const account = await near.account("maix2.testnet");
-	const outcome = await account.sendMoney(
-		"maix.testnet", // receiver account
-		`2${'0'.repeat(24)}` // amount in yoctoNEAR meaning 10^-24 NEAR
-	);
-
-	console.log(outcome)
-
-	res.send("Hello from Firebaseasdasd!");
-});
-
-exports.view = functions.https.onRequest(async (req, res) => {
-
-	// This key can be found in the browser local storage when you are logged in to https://wallet.testnet.near.org/
-	const private_key = "ed25519:2uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; //full access
-	const key_pair = KeyPair.fromString(private_key);
-	const key_store = new keyStores.InMemoryKeyStore(key_pair);
-	key_store.setKey("testnet", "maix2.testnet", key_pair);
-
-	const config = {
-		networkId: "testnet",
-		keyStore: key_store,
-		nodeUrl: "https://rpc.testnet.near.org",
-		walletUrl: "https://wallet.testnet.near.org",
-		helperUrl: "https://helper.testnet.near.org",
-		explorerUrl: "https://explorer.testnet.near.org",
-	};
-
-	// sends NEAR tokens
-	const near = await connect(config);
-	const account = await near.account("maix2.testnet");
-	const outcome =await account.sendMoney(
-		"maix.testnet", // receiver account
-		"1000000000000000000000000" // amount in yoctoNEAR
-	);
-
-	console.log(outcome)
-
-	res.send("Hello from Firebaseasdasd!");
-});
+//
+// exports.send = functions.https.onRequest(async (req, res) => {
+//
+// 	// This key can be found in the browser local storage when you are logged in to https://wallet.testnet.near.org/
+// 	// this is the key for maix2.testnet
+// 	const private_key = "ed25519:2uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; //full access
+// 	// this is the key for maix.testnet
+// 	// const private_key = "ed25519:3cUC27BLE7JnoiDUGFbbc7mcTLjMcSZish3cWjnjmm1yK7TPM44LzsWFzmAQAiTsiHUtjfjrJPGn9spLXkjgjniP"; //full access
+// 	// this is the key for maix2.testnet but changed the first letter after the eliptic curve e.g. ed25519:2.. to ed25519:1..
+// 	// const invalid_private_key = "ed25519:1uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; // using to test what happens if we get the wrong key
+// 	// changing  ed25519 to ed25512 gives unknown curve error
+// 	// changing the value after ed25519 gives us Error: bad secret key size
+// 	// using a valid key but from a different account gives us
+// 	// Error: Can not sign transactions for account maix2.testnet on network testnet, no matching key pair found in InMemorySigner(InMemoryKeyStore).
+// 	const key_pair = KeyPair.fromString(private_key);
+// 	const key_store = new keyStores.InMemoryKeyStore();
+// 	key_store.setKey("testnet", "maix2.testnet", key_pair);
+//
+// 	// console.log(key_store.toString())
+//
+// 	const config = {
+// 		networkId: "testnet",
+// 		keyStore: key_store,
+// 		nodeUrl: "https://rpc.testnet.near.org",
+// 		walletUrl: "https://wallet.testnet.near.org",
+// 		helperUrl: "https://helper.testnet.near.org",
+// 		explorerUrl: "https://explorer.testnet.near.org",
+// 	};
+//
+// 	// sends NEAR tokens
+// 	const near = await connect(config);
+// 	const account = await near.account("maix2.testnet");
+// 	const outcome = await account.sendMoney(
+// 		"maix.testnet", // receiver account
+// 		`2${'0'.repeat(24)}` // amount in yoctoNEAR meaning 10^-24 NEAR
+// 	);
+//
+// 	console.log(outcome)
+//
+// 	res.send("Hello from Firebaseasdasd!");
+// });
+//
+// exports.view = functions.https.onRequest(async (req, res) => {
+//
+// 	// This key can be found in the browser local storage when you are logged in to https://wallet.testnet.near.org/
+// 	const private_key = "ed25519:2uQXpkXWPG9Ybfy5CTirR5NcGP287ESzFQaNz6e4NjbYVQ732rdCTpaBGesyshBdagTZJhr2w5ASUaghZcxRM33t"; //full access
+// 	const key_pair = KeyPair.fromString(private_key);
+// 	const key_store = new keyStores.InMemoryKeyStore(key_pair);
+// 	key_store.setKey("testnet", "maix2.testnet", key_pair);
+//
+// 	const config = {
+// 		networkId: "testnet",
+// 		keyStore: key_store,
+// 		nodeUrl: "https://rpc.testnet.near.org",
+// 		walletUrl: "https://wallet.testnet.near.org",
+// 		helperUrl: "https://helper.testnet.near.org",
+// 		explorerUrl: "https://explorer.testnet.near.org",
+// 	};
+//
+// 	// sends NEAR tokens
+// 	const near = await connect(config);
+// 	const account = await near.account("maix2.testnet");
+// 	const outcome =await account.sendMoney(
+// 		"maix.testnet", // receiver account
+// 		"1000000000000000000000000" // amount in yoctoNEAR
+// 	);
+//
+// 	console.log(outcome)
+//
+// 	res.send("Hello from Firebaseasdasd!");
+// });
 
 
 async function exampleDBReadWrite() {
@@ -251,7 +357,6 @@ async function exampleDBReadWrite() {
 }
 
 function validateNEARAccount(account) {
-
 	// TODO: after the dot we should check for either testnet or mainnet
 
 	console.log('before validateNEARAccount')
@@ -266,4 +371,47 @@ function sendDataToResponseURL(response_url, data) {
 			},
 		})
 		.catch((e)=>fl.log('axios post to response_url FAILED:  '+response_url+' - '+JSON.stringify(data)+'\n'+JSON.stringify(e)))
+}
+function formatErrorMsg(e) {
+	let err_msg = 'Ooops... '
+
+	if (typeof e === 'string')
+		err_msg += e.replace(/([A-Z])/g, " $1");
+	else if (e.type)
+		err_msg += e.type.replace(/([A-Z])/g, " $1");
+	else if (e.message)
+		err_msg += e.message.replace(/([A-Z])/g, " $1");
+	else if (e.error)
+		err_msg += e.error.replace(/([A-Z])/g, " $1");
+
+	return err_msg
+}
+async function getUserByNearAccountAndPublicKey(near_account, public_key) {
+	let user = {}
+	let doc_id = ''
+	let contract_id = ''
+
+	let users = await db.collection('users')
+		.where('near_account', '==', near_account)
+		.get()
+
+	users.forEach(doc_raw => {
+		let doc = doc_raw.data()
+		if (doc && doc.fc_keys) {
+			for (let contract_name in doc.fc_keys){
+				let contract_keys = doc.fc_keys[contract_name]
+				for (let network in contract_keys){
+					let network_key = contract_keys[network]
+					if (network_key.public_key === public_key) {
+						contract_id = contract_name+'.'+network
+						user = doc
+						doc_id = doc_raw.id
+						break
+					}
+				}
+			}
+		}
+	});
+
+	return { user, doc_id, contract_id }
 }

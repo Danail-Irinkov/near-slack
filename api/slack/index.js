@@ -118,64 +118,242 @@ module.exports = function (db, functions) {
 	}
 	async function view (payload, commands, fl) {
 		try {
+			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
+
 			let options = near.getConnectOptions(null,
 				near.getNetworkFromAccount(commands[1]),
 				{
-					accountId: commands[1],
+					accountId: user.near_account,
 					contractName: commands[1],
 					methodName: commands[2],
+					args: commands[3],
 				})
 			let result = await near.callViewFunction(options)
 			console.log('SLACK view result', result)
-			return commands[2]+'(): '+stringifyResponse(result)
+			return commands[2]+'(): ' + stringifyResponse(result)
 		} catch (e) {
 			console.log('near-cli view err: ', e)
 			return Promise.reject(e)
 		}
 
 	}
-	async function call () {
+	async function call (payload, commands, fl) {
 		try {
+			// TODO: Add support for attaching deposit to call
+			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
+			if (!near.userHasActiveContractFCKey(user, commands[1])) {
+				let wallet_login_url = await near.generateWalletLoginURL(user.near_account, commands[1], [], createUserDocId(payload.user_name), db)
+				return {
+					text: 'No Function Call Access Key found for '+commands[1],
+					response_type: 'ephemeral',
+					attachments: [
+						{
+							color: '#4fcae0',
+							attachment_type: 'default',
+							actions: [
+								{
+									type: 'button',
+									style: 'primary',
+									text: 'Create Function-Call Key',
+									url: wallet_login_url
+								}
+							]
+						}
+					]
+				}
+			}
+
+			let keyStore = near.generateKeyStore(
+				near.getNetworkFromAccount(user.near_account),
+				user.near_account,
+				near.getUserContractFCPrivateKey(user, commands[1])
+			)
+			let options = near.getConnectOptions(keyStore,
+				near.getNetworkFromAccount(commands[1]),
+				{
+					accountId: user.near_account,
+					contractName: commands[1],
+					methodName: commands[2],
+					args: commands[3],
+				})
+			let result = await near.scheduleFunctionCall(options)
+			console.log('SLACK view result', result)
+			return commands[2]+'(): ' + stringifyResponse(result)
 		} catch (e) {
 			console.log('near-cli call err: ', e)
+			return Promise.reject(e)
+		}
+	}
+
+	async function account (payload, commands, fl) {
+		try {
+			let options = near.getConnectOptions(null,
+				near.getNetworkFromAccount(commands[1]),
+				{
+					accountId: commands[1]
+				})
+			let result = await near.viewAccount(options)
+
+			return commands[1]+': ' + stringifyResponse(result)
+		} catch (e) {
+			console.log('near-cli account err: ', e)
+			return Promise.reject(e)
+		}
+	}
+	async function keys (payload, commands, fl) {
+		try {
+			let options = near.getConnectOptions(null,
+				near.getNetworkFromAccount(commands[1]),
+				{
+					accountId: commands[1]
+				})
+			let result = await near.keys(options)
+
+			return commands[1]+' keys: ' + stringifyResponse(result)
+		} catch (e) {
+			console.log('near-cli keys err: ', e)
 			return Promise.reject(e)
 		}
 
 	}
 
 	async function help (commands) {
-		let help = 'Available commands:\n' +
-			'login, send, view and call\n' +
-			'for more details use /near help {command}'
+		let help = {
+			text: 'Available commands:\n' +
+				'login, send, view, call, account, keys\n' +
+				'for more details use /near help {command}',
+			// "response_type": "ephemeral ",
+			attachments: [
+				{
+					text: 'Choose a command',
+					fallback: 'No command chosen',
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'command_help',
+					actions: [
+						{
+							name: 'commands_list',
+							text: 'Pick a command...',
+							type: 'select',
+							options: [
+								{
+									text: 'Login',
+									value: 'help login'
+								},
+								{
+									text: 'Send',
+									value: 'help send'
+								},
+								{
+									text: 'View',
+									value: 'help view'
+								},
+								{
+									text: 'Call',
+									value: 'help call'
+								},
+								{
+									text: 'Account',
+									value: 'help account'
+								},
+								{
+									text: 'Keys',
+									value: 'help keys'
+								},
+							]
+						},
+					]
+				}
+			]
+		}
 		if (!commands[1])
 			return help
 
 		switch (commands[1]) {
 			case 'login':
-				help = 'Connect NEAR wallet -> /near login {your NEAR account}'
+				help.text = 'Connect your NEAR wallet\n' +
+					'/near login'
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'login_from_help',
+					fallback: '/near login',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Connect NEAR Wallet',
+							name: 'login',
+							value: 'login'
+						}
+					]
+				})
 				break
 			case 'send':
-				help = 'Transfer NEAR tokens to another account\n' +
-					'/near send {your NEAR account} {to NEAR account} {amount}\n' +
-					'amount format is in NEAR tokens, for ex. 12.025\n' +
+				help.text = 'Transfer NEAR tokens to another account\n' +
+					'/near send {your account} {to NEAR account} {amount}\n' +
+					'Amount format is in NEAR tokens, for ex. 12.025\n' +
 					'Note: You will need a full access key for the sending account (/near login)'
 				break
 			case 'view':
-				help = 'Get result from a contract\'s View method\n' +
-					'/near view {contract account} {method name} {arguments}\n' +
-					'arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}}\n' +
-					'Note: Call is free of charge'
+				help.text = 'Get result from a contract\'s View method\n' +
+					'/near view {contract account} {method name} {?arguments}\n' +
+					'Arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}\n' +
+					'Note: View method call is free of charge'
 				break
 			case 'call':
-				help = 'Post request to a contract\'s Change method\n' +
-					'/near call {contract account} {method name} {arguments}\n' +
-					'arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}}\n' +
+				help.text = 'Post request to a contract\'s Change method\n' +
+					'/near call {contract account} {method name} {?arguments}\n' +
+					'Arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}\n' +
 					'Note: Change method calls require a transaction fee (gas)\n'+
 					'Your logged in account will be charged ~0.00025 NEAR (/near login)'
 				break
+			case 'account':
+				help.text = 'Displays the public information of a NEAR account\n' +
+					'/near account {?account}\n' +
+					'Note: Your logged in account will be shown, if no account is provided\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'account_from_help',
+					fallback: '/near account',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Current Account',
+							name: 'account',
+							value: 'account'
+						}
+					]
+				})
+				break
+			case 'keys':
+				help.text = 'Displays the Keys Information of a NEAR account\n' +
+					'/near keys {?account}\n' +
+					'Note: Your logged in account\'s keys will be shown, if no account is provided\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'keys_from_help',
+					// text: 'Shortcut',
+					fallback: '/near keys',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Your Account\'s Keys',
+							name: 'keys',
+							value: 'keys'
+						}
+					]
+				})
+				break
 			default:
-				help = 'We haven\'t added "' + commands[1] + '" command yet ;)'
+				help.text = 'We haven\'t added "' + commands[1] + '" command yet ;)'
 		}
 
 		return help
@@ -184,14 +362,36 @@ module.exports = function (db, functions) {
 		return "Hello from near-cli";
 	}
 
+	function createUserDocId(string) {
+		return string
+			.replace(/\./g, '1_1')
+			.replace(/#/g, '2_2')
+			.replace(/\$/g, '3_3')
+			.replace(/\[/g, '4_4')
+			.replace(/]/g, '5_5')
+	}
+	function stringifyResponse(near_res = null) {
+		if (typeof near_res === 'string')
+			return near_res
+		else if (typeof near_res === 'object' || near_res instanceof Array)
+			return JSON.stringify(near_res, null, 2)
+		else if (near_res)
+			return String(near_res)
+		else
+			return 'Success'
+	}
 	return {
 		installer,
 		login,
 		send,
 		view,
 		call,
+		account,
+		keys,
 		help,
-		hello
+		createUserDocId,
+		hello,
+		stringifyResponse
 	}
 }
 
@@ -212,36 +412,3 @@ async function createUser(payload, near_account, db) {
 	})
 }
 
-async function getUserBySlackAndNearAccs(near_account, slack_username, db) {
-	let user
-
-	let users = await db.collection('users')
-		.where('near_account', '==', near_account)
-		.where('slack_username', '==', slack_username)
-		.get()
-	users.forEach(doc => {
-		if (doc) {
-			console.log(doc.id, '=>', doc.data());
-			user = doc.data()
-		}
-	});
-
-	return user
-}
-
-function createUserDocId(string) {
-	return string
-		.replace(/\./g, '1_1')
-		.replace(/#/g, '2_2')
-		.replace(/\$/g, '3_3')
-		.replace(/\[/g, '4_4')
-		.replace(/]/g, '5_5')
-}
-function stringifyResponse(near_res) {
-	if (typeof near_res === 'string')
-		return near_res
-	else if (typeof near_res === 'object' || near_res instanceof Array)
-		return JSON.stringify(near_res, null, 2)
-	else
-		return String(near_res)
-}

@@ -1,21 +1,102 @@
-const { connect: nearConnect, utils, providers, KeyPair, transactions} = require('near-api-js')
+const { connect: nearConnect, utils, providers, keyStores, KeyPair, transactions, WalletConnection} = require('near-api-js')
 // const chalk = require('chalk')
 // const inspectResponse = require('./utils/inspect-response')
 // const checkCredentials = require('./utils/check-credentials')
 // const eventtracking = require('./utils/eventtracking')
-const {URL} = require('url')
 // const capture = require('./utils/capture-login-success')
 // const readline = require('readline')
 const verify = require('./utils/verify-account')
 const fs = require('fs')
 const config = require('./config')
 const open = require('open')
+// const inspectResponse = require('./utils/inspect-response')
 
-async function connect({ keyStore, ...options }) {
+// let login_url = 'asd2'
+// global.window = { //Mocking window object to capture the URL
+// 	localStorage: {
+// 		getItem: ()=>'{"allKeys":[]}',
+// 		setItem: ()=>'{"asd": "asd"}'
+// 	},
+// 	location: {
+// 		href: '',
+// 		assign: (url)=>{
+// 			console.log('location.assign URL: ', url)
+// 			login_url=url
+// 		}
+// 	}
+// }
+
+async function connect(options) {
 	// TODO: Avoid need to wrap in deps
-	return await nearConnect({ ...options, deps: { keyStore }});
+	return await nearConnect(options);
 }
 
+function userHasActiveContractFCKey (user, contract_name) {
+	let split_acc = contract_name.split('.')
+	return !!(user.fc_keys && user.fc_keys[split_acc[0]] && user.fc_keys[split_acc[0]][split_acc[1]] && user.fc_keys[split_acc[0]][split_acc[1]].status === 'active')
+}
+function getUserContractFCPrivateKey (user, contract_name) {
+	let split_acc = contract_name.split('.')
+	return user.fc_keys[split_acc[0]][split_acc[1]].private_key
+}
+
+async function generateKeyStore(network, account, access_key) {
+	const keyStore = new keyStores.InMemoryKeyStore()
+	const keyPair = KeyPair.fromString(access_key)
+	return keyStore.setKey(network, account, keyPair)
+}
+async function generateWalletLoginURL(near_account, contract_name = null, method_names = [], user_id, db) {
+	try {
+		console.log('generateWalletLoginURL Start')
+		let userDoc = db.collection('users').doc(user_id)
+		let options = getConnectOptions(null,
+			getNetworkFromAccount(near_account),
+			{
+				accountId: near_account,
+			})
+		// let near = await connect(options)
+		// let account = await near.account(near_account)
+		// let wallet = new WalletConnection(near, login_title)
+		// const keyStore = new keyStores.InMemoryKeyStore()
+		let redirect_url = `https://us-central1-near-api-1d073.cloudfunctions.net/nearLoginRedirect/`
+		// window.location.href = redirect_url
+		console.log('generateWalletLoginURL requestSignIn Start')
+
+		// const currentUrl = new URL(window.location.href);
+		let login_url = options.walletUrl + '/login/'
+		login_url +='?success_url='+redirect_url
+		login_url +='&failure_url='+redirect_url
+		if (contract_name) {
+			/* Throws exception if contract account does not exist */
+			// await account.state();
+			const accessKey = KeyPair.fromRandom('ed25519')
+			let public_key = accessKey.getPublicKey().toString()
+			let private_key =accessKey.toString()
+			userDoc.update({
+				['fc_keys.'+contract_name+'.public_key']: public_key,
+				['fc_keys.'+contract_name+'.private_key']: private_key,
+				['fc_keys.'+contract_name+'.status']: 'pending',
+			})
+			console.log('generateWalletLoginURL public_key: ' + public_key)
+			console.log('generateWalletLoginURL privateKey: ' + private_key)
+
+			login_url +='&contract_id='+contract_name
+			login_url +='&public_key='+accessKey.getPublicKey().toString()
+		}
+
+		if (method_names.length) {
+			method_names.forEach(methodName => {
+				login_url +='&methodNames='+String(methodName)
+			});
+		}
+
+		console.log('generateWalletLoginURL login_url: '+login_url)
+		return login_url
+	}catch (e) {
+		console.log('generateWalletLoginURL Err: '+e)
+		return Promise.reject(e)
+	}
+}
 function getNetworkFromAccount(near_account) {
 	return near_account.split('.').pop()
 }
@@ -27,6 +108,14 @@ function getConnectOptions(keyStore, network, additional_options = {}) {
 	}
 }
 
+async function keys(options) {
+	let near = await connect(options);
+	let account = await near.account(options.accountId);
+	let accessKeys = await account.getAccessKeys();
+	console.log(`Keys for account ${options.accountId}`, accessKeys);
+	return accessKeys
+};
+
 async function viewAccount(options) {
 	let near = await connect(options);
 	let account = await near.account(options.accountId);
@@ -34,14 +123,11 @@ async function viewAccount(options) {
 	if (state && state.amount) {
 		state['formattedAmount'] = utils.format.formatNearAmount(state.amount);
 	}
-	console.log(`Account ${options.accountId}`);
-	// console.log(inspectResponse.formatResponse(state));
+	console.log(`Account ${options.accountId}`, state);
+	return state
 };
 async function scheduleFunctionCall(options) {
-	await checkCredentials(options.accountId, options.networkId, options.keyStore);
-	const deposit = options.depositYocto != null ? options.depositYocto : utils.format.parseNearAmount(options.deposit);
-	console.log(`Scheduling a call: ${options.contractName}.${options.methodName}(${options.args || ''})` +
-		(deposit && deposit != '0' ? ` with attached ${utils.format.formatNearAmount(deposit)} NEAR` : ''));
+	const deposit = options.depositYocto ? options.depositYocto : options.deposit ? utils.format.parseNearAmount(options.deposit) : 0;
 
 	const near = await connect(options);
 	const account = await near.account(options.accountId);
@@ -52,12 +138,12 @@ async function scheduleFunctionCall(options) {
 			contractId: options.contractName,
 			methodName: options.methodName,
 			args: parsedArgs,
-			gas: options.gas,
 			attachedDeposit: deposit,
 		});
 		const result = providers.getTransactionLastResult(functionCallResponse);
 		// inspectResponse.prettyPrintResponse(functionCallResponse, options);
-		// console.log(inspectResponse.formatResponse(result));
+		console.log('getTransactionLastResult result'+ JSON.parse(result));
+		return result
 	} catch (error) {
 		switch (JSON.stringify(error.kind)) {
 			case '{"ExecutionError":"Exceeded the prepaid gas."}': {
@@ -237,8 +323,13 @@ async function openUrl(url) {
 
 module.exports = {
 	connect,
+	userHasActiveContractFCKey,
+	getUserContractFCPrivateKey,
+	generateKeyStore,
+	generateWalletLoginURL,
 	getNetworkFromAccount,
 	getConnectOptions,
+	keys,
 	viewAccount,
 	scheduleFunctionCall,
 	callViewFunction,
