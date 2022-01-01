@@ -1,4 +1,4 @@
-const { connect: nearConnect, utils, providers, keyStores, KeyPair, transactions, WalletConnection} = require('near-api-js')
+const { connect: nearConnect, utils, providers, keyStores, KeyPair, transactions} = require('near-api-js')
 // const chalk = require('chalk')
 // const inspectResponse = require('./utils/inspect-response')
 // const checkCredentials = require('./utils/check-credentials')
@@ -45,33 +45,29 @@ async function generateKeyStore(network, account, access_key) {
 	const keyPair = KeyPair.fromString(access_key)
 	return keyStore.setKey(network, account, keyPair)
 }
-async function generateWalletLoginURL(near_account, contract_name = null, method_names = [], user_id, db) {
+async function generateWalletLoginURL(slack_username = null, near_account, contract_name = null, method_names = []) {
 	try {
-		console.log('generateWalletLoginURL Start')
-		let userDoc = db.collection('users').doc(user_id)
+		console.log('generateWalletLoginURL Start', slack_username, near_account)
 		let options = getConnectOptions(null,
 			getNetworkFromAccount(near_account),
 			{
 				accountId: near_account,
 			})
-		// let near = await connect(options)
-		// let account = await near.account(near_account)
-		// let wallet = new WalletConnection(near, login_title)
-		// const keyStore = new keyStores.InMemoryKeyStore()
 		let redirect_url = `https://us-central1-near-api-1d073.cloudfunctions.net/nearLoginRedirect/`
-		// window.location.href = redirect_url
+		if (!contract_name && slack_username) redirect_url+= slack_username+'/'
 		console.log('generateWalletLoginURL requestSignIn Start')
 
 		// const currentUrl = new URL(window.location.href);
 		let login_url = options.walletUrl + '/login/'
 		login_url +='?success_url='+redirect_url
-		login_url +='&failure_url='+redirect_url
+		// login_url +='&failure_url='+redirect_url
 		if (contract_name) {
+			let userDoc = db.collection('users').doc(createUserDocId(slack_username))
 			/* Throws exception if contract account does not exist */
 			// await account.state();
 			const accessKey = KeyPair.fromRandom('ed25519')
 			let public_key = accessKey.getPublicKey().toString()
-			let private_key =accessKey.toString()
+			let private_key = accessKey.toString()
 			userDoc.update({
 				['fc_keys.'+contract_name+'.public_key']: public_key,
 				['fc_keys.'+contract_name+'.private_key']: private_key,

@@ -6,6 +6,7 @@ function getConfig(env) {
     let config;
     switch (env) {
     case 'production':
+    case 'near':
     case 'mainnet':
         config = {
             networkId: 'mainnet',

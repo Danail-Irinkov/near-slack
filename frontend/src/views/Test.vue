@@ -8,6 +8,7 @@
 			<button class="test-button" @click="testSlackHook('login')"> Test Slack Hook Login</button>
 			<button class="test-button" @click="testSlackHook('view')"> Test Slack Hook View</button>
 			<button class="test-button" @click="testSlackHook('send')"> Test Slack Hook Send</button>
+			<button class="test-button" @click="testSlackHook('call')"> Test Slack Hook Call</button>
 		</div>
 		<div v-if="slackChat.length"
 			class="w-full rounded-lg border-2 border-gray-700 bg-gray-300 text-white">
@@ -65,6 +66,12 @@ export default {
 					break;
 				case "view":
 					slackData.text = "view devtest.testnet whoSaidHi";
+					break;
+				case "send":
+					slackData.text = "send devtest.testnet danail.testnet 23";
+					break;
+				case "call":
+					slackData.text = 'call devtest.testnet sayHi {"bbb":23,"aaa":"asd"} 22.1';
 					break;
 				default:
 					console.error("No command specified")

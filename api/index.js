@@ -1,7 +1,7 @@
 process.env.GCLOUD_PROJECT = 'near-api-1d073'
 const { getAnalytics } = require('firebase/analytics')
 const { initializeApp, cert } = require('firebase-admin/app')
-const { getFirestore } = require('firebase-admin/firestore')
+const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const functions = require('firebase-functions')
 const fs = require('fs')
 const axios = require('axios')
@@ -29,6 +29,7 @@ const firebaseApp = initializeApp(firebaseConfig)
 // console.log('BEFORE ERR 3')
 const db = getFirestore()
 db.settings({ ignoreUndefinedProperties: true })
+global.db = db
 
 // const slack = {}
 const slack = require('./slack')(db, functions)
@@ -61,30 +62,61 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 
 		await slack.installer.handleCallback(req, res)
 
-		res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=success&key=slack`).send(302);
+		res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=slack`).send(302);
 	} catch (e) {
 		fl.error(e)
 		// return res.status(502).end()
-		return res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=success&key=slack`).send(302);
+		return res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=slack`).send(302);
 	}
 });
 
-exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
+// Adding URL parameters to nearLoginRedirect hook
+const express = require('express');
+const cors = require('cors');
+const app = express();
+app.use(cors({ origin: true }));
+app.get('/:slack_username?', async (req, res) => {
 	try {
 		if(!req.query.account_id || !req.query.all_keys) return res.status(502).end('Missing required fields')
 		fl.log(req.query, 'nearLoginRedirect query')
 
-		let { user, doc_id, contract_id } = await getUserByNearAccountAndPublicKey(req.query.account_id, req.query.public_key)
-		let userDoc = db.collection('users').doc(doc_id)
-		if (req.query.all_keys && req.query.public_key) {
-			await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'active' })
-
-			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=success&key=function&contract_id=${req.query.contract_id}`).send(302);
+		if (req.params.slack_username){
+			// Initial Slack User Login
+			let userDoc = await db.collection('users').doc(slack.createUserDocId(req.params.slack_username))
+			await userDoc.update({
+				near_account: req.query.account_id,
+				near_fn_key: req.query.all_keys,
+			})
+			let response_url = (await userDoc.get()).data().response_url
+			if (response_url) {
+				await sendDataToResponseURL(response_url, {
+					text: req.query.account_id+' Logged In',
+					replace_original: true, // NOT WORKING ... TODO: FIx
+					delete_original: true // NOT WORKING ... TODO: FIx replace of last message with buttons
+				})
+			}
+			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=login`).send(302);
 		} else {
-			if(contract_id)
-				await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'failed' })
+			// Creating Contract FunctionCall Access Key
+			let { user, doc_id, contract_id } = await getUserByNearAccountAndPublicKey(req.query.account_id, req.query.public_key)
+			let userDoc = db.collection('users').doc(doc_id)
+			if (req.query.all_keys && req.query.public_key) {
+				await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'active' })
 
-			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.firebaseapp.com/redirection?status=failure&key=function&contract_id=${req.query.contract_id}`).send(302);
+				res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function&contract_id=${req.query.contract_id}`).send(302);
+			} else {
+				if(contract_id)
+					await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'failed' })
+			}
+
+			let response_url = user.response_url
+			if (response_url) {
+				await sendDataToResponseURL(response_url, {
+					text: `FunctionCall Access Key for ${req.query.account_id} is ready to use`,
+					replace_original: true
+				})
+			}
+			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=failure&key=function&contract_id=${req.query.contract_id}`).send(302);
 		}
 		res.end()
 	} catch (e) {
@@ -92,6 +124,7 @@ exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
 		return res.status(502).end('Oops, this is our fault, NEAR Login Redirect has Failed')
 	}
 });
+exports.nearLoginRedirect = functions.https.onRequest(app);
 
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
 	console.log('loginPubSub Start')
@@ -109,6 +142,12 @@ exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (
 		let login_data = await slack.login(payload, commands, fl)
 		fl.log('slack.login Success Start'+JSON.stringify(login_data))
 
+		// Record Response URL to be used after Login Success/Failure
+		if (payload.user_name && payload.response_url)
+			db.collection('users').doc(slack.createUserDocId(payload.user_name)).update({
+				response_url: payload.response_url
+			})
+
 		await sendDataToResponseURL(payload.response_url, login_data)
 	} catch (e) {
 		fl.log('loginPubSub err: '+JSON.stringify(e))
@@ -122,36 +161,9 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 	res.set('Access-Control-Allow-Headers', '*');
 
 	try {
-		let payload = {...req.body};
-		let payload2 = {}
+		let payload = parseSlackPayload(req)
 		fl.log('slackHook payload', payload);
-		// console.log('slackHook payload.payload', payload.payload);
-		if(payload.payload) {
-			payload2 = JSON.parse(payload.payload);
-			console.log('slackHook payload.callback_id', payload2.callback_id);
-			console.log('slackHook payload.callback_id', payload2.callback_id);
-		}
-		if(payload2.user) { //In case of coming from Interactive buttons username is located in a different place ...
-			payload = {...payload2}
-			fl.log('slackHook 2payload: ', payload);
-			payload.user_name = payload2.user.name;
-			console.log('slackHook payload.user_name', payload.user_name);
-		}
-		let commands = String(payload.text).split(' ');
-
-		// Handling Payload from Interactive Help Menu
-		if (payload2 && payload2.actions && payload2.actions[0]) {
-			console.log('slackHook payload2.actions[0]', payload2.actions[0]);
-			if(payload2.actions[0].selected_options && payload2.actions[0].selected_options[0]) {
-				commands = String(payload2.actions[0].selected_options[0].value).split(' ')
-			} else if (payload2.actions[0]) {
-				console.log('slackHook payload2.actions[0].value', payload2.actions[0].value);
-				commands = String(payload2.actions[0].value).split(' ')
-			}
-		}
-		// Handling Payload from Interactive Help Menu - END
-
-		// fl.log('slackHook commands', commands, count++);
+		let commands = await parseSlackCommands(payload)
 		fl.log('slackHook commands', commands);
 
 		// fl.log('payload.token', payload.token);
@@ -159,10 +171,10 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		let response = "Hello from Slack App. Try a different command or /near help"
 		switch (commands[0]) {
 			case 'login':
-				// if (!validateNEARAccount(commands[1])) {
-				// 	response = 'Invalid Near Account'
-				// 	break
-				// }
+				if (commands[1] && !validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
 				console.log('before slack.login')
 
 				// Needed to workaround Slack timeout limit (using PubSUb)
@@ -179,18 +191,34 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				await topic.publish(messageBuffer);
 				//END  (using PubSUb)
 
-				response = 'Initializing account...'
+				response = {
+					text: 'Initializing account...',
+					response_type: 'ephemeral'
+				}
+				break
+			case 'logout':
+				// TODO: When making Function calls, the sender is determined by the FC key
+				// TODO: So when the user logins with a different Near account we need to start collecting new FC keys
+				// TODO: So we will need to refactor the Database as follows:
+				// TODO: user.near.near_account.contract = { private_key, public_key }
+				// TODO: In this way each slack user will be able to properly use multiple near accounts
+				// TODO: AND OF COURSE all the code that uses these properties will need to get refactored accordingly
+				let user = (await db.collection('users').doc(slack.createUserDocId(payload.user_name)).get()).data()
+				if (user.near_account) {
+					await db.collection('users').doc(slack.createUserDocId(payload.user_name)).update({
+						near_account: FieldValue.delete(),
+						near_account_last: user.near_account,
+					})
+					response = 'Logged out NEAR Account: '+user.near_account
+				} else {
+					response = 'You have no NEAR Account Logged in'
+				}
 				break
 			case 'account':
 				console.log('before slack.account')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
-					console.time('account db.collection(users)')
-					let user = await db.collection('users').doc(slack.createUserDocId(payload.user_name)).get()
-					console.timeEnd('account db.collection(users)')
-					commands.push(user.data().near_account)
-				}
-
-				if (!validateNEARAccount(commands[1])) {
+					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
+				} else if (!validateNEARAccount(commands[1])) {
 					response = 'Invalid Near Account'
 					break
 				}
@@ -200,13 +228,8 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			case 'keys':
 				console.log('before slack.keys')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
-					console.time('keys db.collection(users)')
-					let user = await db.collection('users').doc(slack.createUserDocId(payload.user_name)).get()
-					console.timeEnd('keys db.collection(users)')
-					commands.push(user.data().near_account)
-				}
-
-				if (!validateNEARAccount(commands[1])) {
+					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
+				} else if (!validateNEARAccount(commands[1])) {
 					response = 'Invalid Near Account'
 					break
 				}
@@ -362,6 +385,7 @@ function validateNEARAccount(account) {
 	console.log('before validateNEARAccount')
 	return /[a-z0-9]*\.(near|testnet)/.test(account)
 }
+global.validateNEARAccount = validateNEARAccount
 
 function sendDataToResponseURL(response_url, data) {
 	return axios.post(response_url, data,
@@ -414,4 +438,104 @@ async function getUserByNearAccountAndPublicKey(near_account, public_key) {
 	});
 
 	return { user, doc_id, contract_id }
+}
+
+function parseSlackPayload(req) {
+	let payload = {...req.body};
+	let payload2 = {}
+	console.log('parseSlackPayload payload', payload);
+	// console.log('slackHook payload.payload', payload.payload);
+	if(payload.payload) {
+		payload2 = JSON.parse(payload.payload);
+		console.log('slackHook payload.callback_id', payload2.callback_id);
+
+		if(payload2.user) { //In case of coming from Interactive buttons username is located in a different place ...
+			payload = {...payload2}
+			fl.log('slackHook 2payload: ', payload);
+			payload.user_name = payload2.user.name;
+			console.log('slackHook payload.user_name', payload.user_name);
+		}
+	}
+	return payload
+}
+
+async function parseSlackCommands(payload) {
+	let commands = String(payload.text);
+
+	// Handling Payload from Interactive Help Menu
+	if (payload && payload.actions && payload.actions[0]) {
+		if(payload.actions[0].selected_options && payload.actions[0].selected_options[0]) {
+			// Parsing Commands from Interactive Menu Select
+			commands = String(payload.actions[0].selected_options[0].value)
+		} else if (payload.actions[0]) {
+			// Parsing Commands from Interactive Button
+			commands = String(payload.actions[0].value)
+		}
+	}
+	// Handling Payload from Interactive Help Menu - END
+	commands = commands.replace('  ', ' ')
+	let commands_array = commands.split(' ')
+	// console.log('commands_array1', commands_array)
+
+	if (commands_array[0] === 'call' && commands_array[3]){
+		// Parsing JSON arguments Input
+		if(commands_array[3].charAt(0) !== '{')
+			return Promise.reject('Invalid Arguments, please check /near help call')
+
+		//Parsing call function JSON arguments
+		let first_json_index = commands.indexOf('{')
+		let last_json_index = commands.indexOf('}')+1
+		let json_str = commands.slice(first_json_index, last_json_index)
+		try {
+			JSON.parse(json_str);
+		} catch (e) {
+			return Promise.reject('Arguments are not a valid JSON')
+		}
+		commands = commands.replace(commands.substring(first_json_index, last_json_index+2), '')
+		commands_array = commands.split(' ')
+		commands_array.splice(2,0, json_str)
+	}
+	console.log('commands_array3', commands_array)
+	return commands_array
+}
+function IsJsonString(str) {
+	try {
+		JSON.parse(str);
+	} catch (e) {
+		return false;
+	}
+	return true;
+}
+async function getCurrentNearAccountFromSlackUsername(user_name) {
+	try {
+		console.time('account db.collection(users)')
+		let user = (await db.collection('users').doc(slack.createUserDocId(user_name)).get()).data()
+		if(!user.near_account) {
+			let response = {
+				text: 'You are not logged in. Try /near login',
+				attachments: [
+					{
+						color: '#4fcae0',
+						attachment_type: 'default',
+						callback_id: 'login_from_help',
+						fallback: '/near login',
+						actions: [
+							{
+								type: 'button',
+								style: 'primary',
+								text: 'Connect NEAR Wallet',
+								name: 'login',
+								value: 'login'
+							}
+						]
+					}
+				]
+			}
+			return Promise.reject(response)
+		}
+		console.timeEnd('account db.collection(users)')
+		return user.near_account
+	} catch (e) {
+		return Promise.reject(e)
+	}
 }

@@ -70,33 +70,53 @@ module.exports = function (db, functions) {
 			let user = userDoc.data()
 			// console.log('login user', user)
 
-			if(user.near_fn_key && !!'TODO: FN key is active') {
+			if(user.near_account && (!commands[1] || commands[1] === user.near_account) && user.near_fn_key && !!'TODO: FN key is active') {
 				return { text: 'Login Successful' }
 			} else {
 				// TODO: Introduce an env variable to determine routing
+				// DEPRECATED LOGIN VIA FRONTEND
 				// let login_url = `http://localhost:3000/login/?fb_token=${user.fb_token}`
-				let login_url = `https://near-api-1d073.firebaseapp.com/login/?fb_token=${user.fb_token}`
-				// TODO: add a button with the url because the url is too long
-				fl.log('login login_url', login_url)
-				return {
+				// let login_url = `https://near-api-1d073.firebaseapp.com/login/?fb_token=${user.fb_token}`
+				// fl.log('login login_url', login_url)
+
+				let response = {
 					text: 'Connect Slack with your NEAR account',
-					channel: payload.channel_id,
+					response_type: 'ephemeral',
+					// channel: payload.channel_id,
 					attachments: [
 						{
-							fallback: login_url,
+							fallback: 'Connect NEAR Wallet',
 							color: "#4fcae0",
 							attachment_type: "default",
-							actions: [
-								{
-									type: "button",
-									style: "primary",
-									text: "Connect NEAR Wallet",
-									url: login_url
-								}
-							]
+							actions: []
 						}
 					]
 				}
+				if (commands[1] && validateNEARAccount(commands[1])) {
+					let wallet_url = await near.generateWalletLoginURL(payload.user_name, commands[1])
+					response.attachments[0].actions.push({
+						type: "button",
+						style: "primary",
+						text: "Connect NEAR Wallet",
+						url: wallet_url
+					})
+				} else {
+					let wallet_url = await near.generateWalletLoginURL(payload.user_name, 'any.near')
+					let testnet_wallet_url = await near.generateWalletLoginURL(payload.user_name, 'any.testnet')
+					response.attachments[0].actions.push({
+						type: "button",
+						style: "primary",
+						text: "NEAR Wallet",
+						url: wallet_url
+					})
+					response.attachments[0].actions.push({
+						type: "button",
+						style: "primary",
+						text: "NEAR Testnet",
+						url: testnet_wallet_url
+					})
+				}
+				return response
 			}
 
 		} catch (e) {
@@ -143,7 +163,7 @@ module.exports = function (db, functions) {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
 			if (!near.userHasActiveContractFCKey(user, commands[1])) {
-				let wallet_login_url = await near.generateWalletLoginURL(user.near_account, commands[1], [], createUserDocId(payload.user_name), db)
+				let wallet_login_url = await near.generateWalletLoginURL(payload.user_name, user.near_account, commands[1], [])
 				return {
 					text: 'No Function Call Access Key found for '+commands[1],
 					response_type: 'ephemeral',
@@ -176,6 +196,7 @@ module.exports = function (db, functions) {
 					contractName: commands[1],
 					methodName: commands[2],
 					args: commands[3],
+					deposit: commands[4],
 				})
 			let result = await near.scheduleFunctionCall(options)
 			console.log('SLACK view result', result)
@@ -221,7 +242,7 @@ module.exports = function (db, functions) {
 	async function help (commands) {
 		let help = {
 			text: 'Available commands:\n' +
-				'login, send, view, call, account, keys\n' +
+				'login, logout, send, view, call, account, keys\n' +
 				'for more details use /near help {command}',
 			// "response_type": "ephemeral ",
 			attachments: [
@@ -240,6 +261,10 @@ module.exports = function (db, functions) {
 								{
 									text: 'Login',
 									value: 'help login'
+								},
+								{
+									text: 'Logout',
+									value: 'help logout'
 								},
 								{
 									text: 'Send',
@@ -273,7 +298,9 @@ module.exports = function (db, functions) {
 		switch (commands[1]) {
 			case 'login':
 				help.text = 'Connect your NEAR wallet\n' +
-					'/near login'
+					'/near login {?account}\n' +
+				'Account is optional, if you want to change your current account\n'
+
 				help.attachments.push({
 					color: '#4fcae0',
 					attachment_type: 'default',
@@ -290,9 +317,29 @@ module.exports = function (db, functions) {
 					]
 				})
 				break
+			case 'logout':
+				help.text = 'Disconnect your NEAR wallet\n' +
+					'/near logout\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'logout_from_help',
+					fallback: '/near logout',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Disconnect NEAR Wallet',
+							name: 'logout',
+							value: 'logout'
+						}
+					]
+				})
+				break
 			case 'send':
 				help.text = 'Transfer NEAR tokens to another account\n' +
-					'/near send {your account} {to NEAR account} {amount}\n' +
+					'/near send {your account} {to account} {amount}\n' +
 					'Amount format is in NEAR tokens, for ex. 12.025\n' +
 					'Note: You will need a full access key for the sending account (/near login)'
 				break
@@ -304,10 +351,11 @@ module.exports = function (db, functions) {
 				break
 			case 'call':
 				help.text = 'Post request to a contract\'s Change method\n' +
-					'/near call {contract account} {method name} {?arguments}\n' +
-					'Arguments are optional, format is JSON(no whitespace), for ex. {"user":"test_user"}\n' +
+					'/near call {contract account} {method name} {?arguments} {?deposit}\n' +
+					'Arguments are optional, format is JSON, for ex. {"user": "test_user"}\n' +
+					'Deposit format is in NEAR tokens, for ex. 12.025\n' +
 					'Note: Change method calls require a transaction fee (gas)\n'+
-					'Your logged in account will be charged ~0.00025 NEAR (/near login)'
+					'Your logged in account will be charged ~0.00025 NEAR per call'
 				break
 			case 'account':
 				help.text = 'Displays the public information of a NEAR account\n' +
@@ -370,6 +418,7 @@ module.exports = function (db, functions) {
 			.replace(/\[/g, '4_4')
 			.replace(/]/g, '5_5')
 	}
+	global.createUserDocId = createUserDocId
 	function stringifyResponse(near_res = null) {
 		if (typeof near_res === 'string')
 			return near_res
