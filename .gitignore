@@ -107,3 +107,5 @@ package-lock.json
 /**/.runtimeconfig.json
 api/near-api-1d073-firebase-adminsdk-fyizi-d7f7e50e8c.json
 out
+contract
+node_run_time
