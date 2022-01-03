@@ -82,6 +82,7 @@ module.exports = function (db, functions) {
 
 				let response = {
 					text: 'Connect Slack with your NEAR account',
+					replace_original: true,
 					response_type: 'ephemeral',
 					// channel: payload.channel_id,
 					attachments: [
@@ -94,7 +95,7 @@ module.exports = function (db, functions) {
 					]
 				}
 				if (commands[1] && validateNEARAccount(commands[1])) {
-					let wallet_url = await near.generateWalletLoginURL(payload, commands[1])
+					let wallet_url = await near.generateWalletLoginURL('login', payload, commands[1])
 					response.attachments[0].actions.push({
 						type: "button",
 						style: "primary",
@@ -102,8 +103,8 @@ module.exports = function (db, functions) {
 						url: wallet_url
 					})
 				} else {
-					let wallet_url = await near.generateWalletLoginURL(payload, 'any.near')
-					let testnet_wallet_url = await near.generateWalletLoginURL(payload, 'any.testnet')
+					let wallet_url = await near.generateWalletLoginURL('login', payload, 'any.near')
+					let testnet_wallet_url = await near.generateWalletLoginURL('login', payload, 'any.testnet')
 					response.attachments[0].actions.push({
 						type: "button",
 						style: "primary",
@@ -160,29 +161,15 @@ module.exports = function (db, functions) {
 	}
 	async function call (payload, commands, fl) {
 		try {
+			fl.log(payload, 'call payload')
+			fl.log(commands, 'call commands')
 			// TODO: Add support for attaching deposit to call
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
+			fl.log(commands, 'call commands2')
 			if (!near.userHasActiveContractFCKey(user, commands[1])) {
-				let wallet_login_url = await near.generateWalletLoginURL(payload, user.near_account, commands[1], [])
-				return {
-					text: 'No Function Call Access Key found for '+commands[1],
-					response_type: 'ephemeral',
-					attachments: [
-						{
-							color: '#4fcae0',
-							attachment_type: 'default',
-							actions: [
-								{
-									type: 'button',
-									style: 'primary',
-									text: 'Create Function-Call Key',
-									url: wallet_login_url
-								}
-							]
-						}
-					]
-				}
+				fl.log(commands, 'call commands3')
+				return await handleMissingContractFCKey(payload, user, commands)
 			}
 
 			let keyStore = near.generateKeyStore(
@@ -462,3 +449,25 @@ async function createUser(payload, near_account, db) {
 	})
 }
 
+async function handleMissingContractFCKey(payload, user, commands) {
+	fl.log(commands, 'call commands4')
+	let wallet_login_url = await near.generateWalletLoginURL('functionKey', payload, user.near_account, commands[1], [])
+	return {
+		text: 'No Function Call Access Key found for '+commands[1],
+		response_type: 'ephemeral',
+		attachments: [
+			{
+				color: '#4fcae0',
+				attachment_type: 'default',
+				actions: [
+					{
+						type: 'button',
+						style: 'primary',
+						text: 'Create Function-Call Key',
+						url: wallet_login_url
+					}
+				]
+			}
+		]
+	}
+}

@@ -32,12 +32,23 @@ async function connect(options) {
 }
 
 function userHasActiveContractFCKey (user, contract_name) {
-	let split_acc = contract_name.split('.')
-	return !!(user.fc_keys && user.fc_keys[split_acc[0]] && user.fc_keys[split_acc[0]][split_acc[1]] && user.fc_keys[split_acc[0]][split_acc[1]].status === 'active')
+	let near_acc_key = createUserDocId(user.near_account)
+	let contract_key = createUserDocId(contract_name)
+
+	let bool = false
+	if (user.near && user.near[near_acc_key]
+		&& user.near[near_acc_key].contracts
+		&& user.near[near_acc_key].contracts[contract_key]
+		&& user.near[near_acc_key].contracts[contract_key].status === 'active'
+	)
+		bool = true
+
+	return bool
 }
 function getUserContractFCPrivateKey (user, contract_name) {
-	let split_acc = contract_name.split('.')
-	return user.fc_keys[split_acc[0]][split_acc[1]].private_key
+	let near_acc_key = createUserDocId(user.near_account)
+	let contract_key = createUserDocId(contract_name)
+	return user.near[near_acc_key].contracts[contract_key].private_key
 }
 
 async function generateKeyStore(network, account, access_key) {
@@ -50,7 +61,7 @@ function encodeURIComponentForFirebase(str) {
 		return '%' + c.charCodeAt(0).toString(16);
 	});
 }
-async function generateWalletLoginURL(payload = null, near_account, contract_name = null, method_names = []) {
+async function generateWalletLoginURL(redirect = 'login', payload = null, near_account, contract_name = null, method_names = []) {
 	try {
 		console.log('generateWalletLoginURL Start', payload.user_name, near_account)
 		let options = getConnectOptions(null,
@@ -64,6 +75,7 @@ async function generateWalletLoginURL(payload = null, near_account, contract_nam
 		if (!contract_name && payload.channel_id) redirect_url+= `&channel_id=${payload.channel_id}`
 		if (!contract_name && payload.team_domain) redirect_url+= `&team_domain=${payload.team_domain}`
 		if (!contract_name && payload.response_url) redirect_url+= `&response_url=${payload.response_url}`
+		if (!contract_name && redirect) redirect_url+= `&redirect=${redirect}`
 		console.log('generateWalletLoginURL requestSignIn Start')
 
 		// const currentUrl = new URL(window.location.href);
@@ -73,15 +85,18 @@ async function generateWalletLoginURL(payload = null, near_account, contract_nam
 		login_url +='&context=testString'
 		if (contract_name) {
 			let userDoc = db.collection('users').doc(createUserDocId(payload.user_name))
-			/* Throws exception if contract account does not exist */
-			// await account.state();
 			const accessKey = KeyPair.fromRandom('ed25519')
 			let public_key = accessKey.getPublicKey().toString()
 			let private_key = accessKey.toString()
+
+			let near_acc_key = createUserDocId(near_account)
+			let contract_key = createUserDocId(contract_name)
 			userDoc.update({
-				['fc_keys.'+contract_name+'.public_key']: public_key,
-				['fc_keys.'+contract_name+'.private_key']: private_key,
-				['fc_keys.'+contract_name+'.status']: 'pending',
+				['near.'+near_acc_key+'.near_account']: near_account,
+				['near.'+near_acc_key+'.contracts'+'.'+contract_key+'.public_key']: public_key,
+				['near.'+near_acc_key+'.contracts'+'.'+contract_key+'.private_key']: private_key,
+				['near.'+near_acc_key+'.contracts'+'.'+contract_key+'.contract_name']: contract_name,
+				['near.'+near_acc_key+'.contracts'+'.'+contract_key+'.status']: 'pending',
 			})
 			console.log('generateWalletLoginURL public_key: ' + public_key)
 			console.log('generateWalletLoginURL privateKey: ' + private_key)
