@@ -9,7 +9,7 @@
 
 <script>
 import axios from 'axios'
-import { connect, keyStores, WalletConnection, KeyPair } from 'near-api-js'
+import { connect, keyStores, WalletConnection, KeyPair, utils, transactions, PublicKey } from 'near-api-js'
 
 	const extractNetworkId = (user_name) => user_name.split(".")[1];
 	const isValidNetworkId = (network_id) => network_id == "testnet" || network_id == "mainnet" || network_id == "betanet";
@@ -94,56 +94,117 @@ export default {
 		},
 		async send() {
 
-			const keyStore = new keyStores.BrowserLocalStorageKeyStore();
+				// const senderId   = commands[1];
+			const senderId   = "maix.testnet";
+			// const receiverId = commands[2];
+			const receiverId = "maix2.testnet";
+			// const amount 		 = utils.parseNearAmount(commands[3]);
+			const amount 		 = utils.format.parseNearAmount("12.2");
 
-			const _config = {
-				keyStore,
-				networkId: "testnet",
-				nodeUrl: "https://rpc.testnet.near.org",
-			};
+			const senderIdNet = senderId.split('.').pop();
+			const receiverIdNet = senderId.split('.').pop();
 
-			async function createFullAccessKey(accountId) {
-				const keyPair = KeyPair.fromRandom("ed25519");
-				const publicKey = keyPair.publicKey.toString();
-				const near = await connect(_config);
-				const account = await near.account(accountId);
-				await keyStore.setKey(_config.networkId, publicKey, keyPair);
-				await account.addKey(publicKey);
-			}
+			// Error checking but not implemented yet, there is a corner case with dev accounts where they don't have a .testnet at the end
+			// if ( senderIdNet !== 'testnet' && senderIdNet !== 'near' ) {
 
+			// if (senderIdNet !== receiverIdNet) {
+			// 	payload.text = `Sender and receiver must be in the same NEAR network`
+			// 	return payload
+			// }
 
-
-			const sender = this.senderField;
-			const receiver = this.receiverField;
-			const amount = this.amountField;
-
-			await createFullAccessKey(sender);
-
-			if (!this.isValidateInput(sender, receiver, amount))
-				throw new Error("Invalid input");
-
-			const networkId = extractNetworkId(sender);
-
-			console.log(networkId)
-
-			const config = {
-				networkId,
-				keyStore: new keyStores.BrowserLocalStorageKeyStore(),
-				nodeUrl: `https://rpc.${networkId}.near.org`,
-				walletUrl: `https://wallet.${networkId}.near.org`,
-				helperUrl: `https://helper.${networkId}.near.org`,
-				explorerUrl: `https://explorer.${networkId}.near.org`,
-			}
-
+			const config = { ...{
+            networkId: 'testnet',
+            nodeUrl: 'https://rpc.testnet.near.org',
+            walletUrl: 'https://wallet.testnet.near.org',
+            helperUrl: 'https://helper.testnet.near.org',
+            helperAccount: 'testnet',
+            explorerUrl: 'https://explorer.testnet.near.org',
+        }, ...{keyStore: new keyStores.InMemoryKeyStore()}};
 			const near = await connect(config);
-			const wallet = new WalletConnection(near, "wallet connection text");
-			if(!wallet.isSignedIn()) {
-				console.log("Not signed in");
-			}
-			// wallet.requestSignIn()
-			const account = wallet.account().addKey();;
-			let result = await account.sendMoney(receiver, amount);
-			console.log("result:", result);
+			const account = await near.account(senderId);
+			const wallet = new WalletConnection(near)
+			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
+			let key = (await account.getAccessKeys())
+				.filter(key => key.access_key.permission === 'FullAccess')[0]; 
+
+			// if (key === undefined) { 
+			// 	payload.text = `${senderId} doens't have any full access keys. Cannot send near.`;
+			// 	return payload;
+			// }
+
+
+			key = utils.key_pair.PublicKey.from(key.public_key);
+			
+			const action = transactions.transfer(amount);
+			// It seems that nonce and block hash can be random values
+			const nonce = 7560000005;
+			const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256));
+			const transaction = transactions.createTransaction(senderId, key, receiverId, 7560000005, [action], blockHash);
+
+			// const transactionSerialized = serialize(near.transaction.SCHEMA, transaction);
+			// const serchParam = Buffer.from(transactionSerialized).toString('base64');
+
+			// const meta = 'my_meta_data';
+			// const callbackURL = 'maix.xyz'
+
+			// const url = ""
+			wallet.requestSignTransactions({
+				transactions: [transaction],
+				callbackUrl: "maix.xyz",
+				meta: "metaparams",
+			});
+			// TODO: research what send does?!?
+
+			// const keyStore = new keyStores.BrowserLocalStorageKeyStore();
+
+			// const _config = {
+			// 	keyStore,
+			// 	networkId: "testnet",
+			// 	nodeUrl: "https://rpc.testnet.near.org",
+			// };
+
+			// async function createFullAccessKey(accountId) {
+			// 	const keyPair = KeyPair.fromRandom("ed25519");
+			// 	const publicKey = keyPair.publicKey.toString();
+			// 	const near = await connect(_config);
+			// 	const account = await near.account(accountId);
+			// 	await keyStore.setKey(_config.networkId, publicKey, keyPair);
+			// 	await account.addKey(publicKey);
+			// }
+
+
+
+			// const sender = this.senderField;
+			// const receiver = this.receiverField;
+			// const amount = this.amountField;
+
+			// await createFullAccessKey(sender);
+
+			// if (!this.isValidateInput(sender, receiver, amount))
+			// 	throw new Error("Invalid input");
+
+			// const networkId = extractNetworkId(sender);
+
+			// console.log(networkId)
+
+			// const config = {
+			// 	networkId,
+			// 	keyStore: new keyStores.BrowserLocalStorageKeyStore(),
+			// 	nodeUrl: `https://rpc.${networkId}.near.org`,
+			// 	walletUrl: `https://wallet.${networkId}.near.org`,
+			// 	helperUrl: `https://helper.${networkId}.near.org`,
+			// 	explorerUrl: `https://explorer.${networkId}.near.org`,
+			// }
+
+			// const near = await connect(config);
+			// const wallet = new WalletConnection(near, "wallet connection text");
+			// if(!wallet.isSignedIn()) {
+			// 	console.log("Not signed in");
+			// }
+			// // wallet.requestSignIn()
+			// const account = wallet.account().addKey();;
+			// let result = await account.sendMoney(receiver, amount);
+			// console.log("result:", result);
 		}
 	}
 }

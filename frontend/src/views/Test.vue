@@ -77,7 +77,7 @@ export default {
 					console.error("No command specified")
 			}
 
-			// console.log("slackData.text", slackData.token)
+			console.log("slackData.text", slackData.text)
 
 			let res = await axios.post('http://localhost:5001/near-api-1d073/us-central1/slackHook', slackData)
 			

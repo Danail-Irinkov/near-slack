@@ -1,7 +1,12 @@
 const { InstallProvider } = require('@slack/oauth');
+const { response } = require('express');
 // const { firebaseConfig } = require('firebase-functions/v1');
-const { getAuth } = require('firebase-admin/auth')
-const near = require('../near')
+const { getAuth } = require('firebase-admin/auth');
+const { utils, WalletConnection, keyStores, connect } = require('near-api-js');
+const { createTransaction, transfer, SCHEMA } = require('near-api-js/lib/transaction');
+const near = require('../near');
+const getConfig = require('../near/config');
+const { serialize } = require('borsh');
 // const near = {}
 
 module.exports = function (db, functions) {
@@ -125,11 +130,62 @@ module.exports = function (db, functions) {
 			return Promise.reject(e)
 		}
 	}
-	async function send(user) {
-		try {
-			if (userIsLoggedInWithNear(user)) return 'Please login'
 
-			// TODO: research what send does?!?
+	/**
+	 * Returns link near wallet to confirm transaction
+	 * commands[0] = 'send'
+	 * commands[1] = senderId
+	 * commands[2] = receiverId
+	 * commands[4] = amount in Ⓝ Near (1Ⓝ = 1 * 10^24 yoctoNear)
+	 * */
+	async function send(payload, commands, fl) {
+		try {
+			// if (userIsLoggedInWithNear(user)) return 'Please login'
+
+			const senderId   = commands[1];
+			const receiverId = commands[2];
+			const amount 		 = utils.format.parseNearAmount(commands[3]);
+
+			const senderIdNet = senderId.split('.').pop();
+			const receiverIdNet = senderId.split('.').pop();
+
+			// Error checking but not implemented yet, there is a corner case with dev accounts where they don't have a .testnet at the end
+			// if ( senderIdNet !== 'testnet' && senderIdNet !== 'near' ) {
+
+			// if (senderIdNet !== receiverIdNet) {
+			// 	payload.text = `Sender and receiver must be in the same NEAR network`
+			// 	return payload
+			// }
+			
+			const config = { ...getConfig(senderIdNet), keyStore: new keyStores.InMemoryKeyStore()};
+			const near = await connect(config);
+			const account = await near.account(senderId);
+			// const wallet = new WalletConnection(nearConnection)
+			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
+			let key = (await account.getAccessKeys())
+				.filter(key => key.access_key.permission === 'FullAccess')[0]; 
+			
+			if (key === undefined)
+				return `${senderId} doens't have any full access keys. Cannot send near.`;
+			
+			key = utils.key_pair.PublicKey.from(key.public_key);
+			
+			const action = transfer(amount);
+			
+			// It seems that nonce and block hash can be random values
+			const nonce = 7560000005;
+			const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256));
+			const transaction = createTransaction(senderId, key, receiverId, 7560000005, [action], blockHash);
+			
+			const transactionSerialized = serialize(SCHEMA, transaction);
+			const serchParams = {
+				transactions: Buffer.from(transactionSerialized).toString('base64'),
+				meta: 'my_meta_data',
+				callbackURL: 'maix.xyz',
+			}
+
+			const url = `https://wallet.testnet.near.org/sign?transactions=${serchParams.transactions}&meta=${serchParams.meta}&callbackURL=${serchParams.callbackURL}`
+			return `To sign send transaction go to ${url}`;
 
 		} catch (e) {
 			console.log('near-cli send err: ', e)
