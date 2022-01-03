@@ -72,6 +72,108 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 	}
 });
 
+exports.nearSignTransactionCallBack = functions.https.onRequest(async (req, res) => {
+
+	try {
+		fl.log("req.query:", req.query);
+		fl.log("req.body:", req.body);
+	} catch (e) {
+		fl.error(e)
+	}
+
+	res.send('OK');
+
+});
+
+exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
+	try {
+		if(!req.query.account_id || !req.query.all_keys) return res.status(502).end('Missing required fields')
+		fl.log(req.query, 'nearLoginRedirect query')
+
+		let response_url = req.query.response_url || ''
+		let team_domain = req.query.team_domain || ''
+		let channel_id = req.query.channel_id || ''
+
+		let slack_redirect_url // URL to redirect the user directly to Slack App
+		if (team_domain && channel_id)
+		   slack_redirect_url = `https://${team_domain}.slack.com/archives/${channel_id}`
+
+		if (req.query.slack_username){
+			// Initial Slack User Login
+			let userDoc = await db.collection('users').doc(slack.createUserDocId(req.query.slack_username))
+			await userDoc.update({
+				near_account: req.query.account_id,
+				near_fn_key: req.query.all_keys,
+			})
+
+			if (response_url) {
+				await sendDataToResponseURL(response_url, {
+					text: 'Logged In as ' + req.query.account_id,
+					replace_original: true, // NOT WORKING ... TODO: FIx
+					delete_original: true // NOT WORKING ... TODO: FIx replace of last message with buttons
+				})
+			}
+
+			let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=login`
+			res.header("Location", slack_redirect_url || frontend_success).send(302);
+		} else {
+			// Creating Contract FunctionCall Access Key
+			let { user, doc_id, contract_id } = await getUserByNearAccountAndPublicKey(req.query.account_id, req.query.public_key)
+			let userDoc = db.collection('users').doc(doc_id)
+			if (req.query.all_keys && req.query.public_key) {
+				await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'active' })
+
+				let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function&contract_id=${req.query.contract_id}`
+				res.header("Location", slack_redirect_url || frontend_success).send(302);
+			} else {
+				if(contract_id)
+					await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'failed' })
+			}
+
+			let response_url = user.response_url
+			if (response_url) {
+				await sendDataToResponseURL(response_url, {
+					text: `FunctionCall Access Key for ${req.query.account_id} is ready to use`,
+					replace_original: true
+				})
+			}
+			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=failure&key=function&contract_id=${req.query.contract_id}`).send(302);
+		}
+		res.end()
+	} catch (e) {
+		fl.error(e)
+		return res.status(502).end('Oops, this is our fault, NEAR Login Redirect has Failed')
+	}
+});
+
+exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
+	console.log('loginPubSub Start')
+	// console.log('loginPubSub Start', message)
+	if (!message.data) return
+
+	try {
+		const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+		// console.log('loginPubSub data', data)
+		const payload = data.payload
+		const commands = data.commands
+		// console.log('loginPubSub payload', payload)
+		// console.log('loginPubSub commands', commands)
+
+		let login_data = await slack.login(payload, commands, fl)
+		fl.log('slack.login Success Start'+JSON.stringify(login_data))
+
+		// Record Response URL to be used after Login Success/Failure
+		if (payload.user_name && payload.response_url)
+			db.collection('users').doc(slack.createUserDocId(payload.user_name)).update({
+				response_url: payload.response_url
+			})
+
+		await sendDataToResponseURL(payload.response_url, login_data)
+	} catch (e) {
+		fl.log('loginPubSub err: '+JSON.stringify(e))
+	}
+});
+
 exports.slackHook = functions.https.onRequest(async (req, res) => {
 	// CORS enabled
 	res.set('Access-Control-Allow-Origin' , '*');
@@ -186,8 +288,9 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					response = 'Invalid Near Account'
 					break
 				}
-				console.log('before slack.view')
-				response = await slack.view(payload, commands, fl)
+				console.log('before slack.send')
+				response = await slack.send(payload, commands, fl)
+				console.log('after slack.send')
 				break
 			case 'help':
 				console.log('before slack.help')
