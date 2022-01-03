@@ -45,24 +45,34 @@ async function generateKeyStore(network, account, access_key) {
 	const keyPair = KeyPair.fromString(access_key)
 	return keyStore.setKey(network, account, keyPair)
 }
-async function generateWalletLoginURL(slack_username = null, near_account, contract_name = null, method_names = []) {
+function encodeURIComponentForFirebase(str) {
+	return encodeURIComponent(str).replace(/[\.\#\$\[\]]/g, function (c) {
+		return '%' + c.charCodeAt(0).toString(16);
+	});
+}
+async function generateWalletLoginURL(payload = null, near_account, contract_name = null, method_names = []) {
 	try {
-		console.log('generateWalletLoginURL Start', slack_username, near_account)
+		console.log('generateWalletLoginURL Start', payload.user_name, near_account)
 		let options = getConnectOptions(null,
 			getNetworkFromAccount(near_account),
 			{
 				accountId: near_account,
 			})
+
 		let redirect_url = `https://us-central1-near-api-1d073.cloudfunctions.net/nearLoginRedirect/`
-		if (!contract_name && slack_username) redirect_url+= slack_username+'/'
+		if (!contract_name && payload.user_name) redirect_url+= `?slack_username=${payload.user_name}`
+		if (!contract_name && payload.channel_id) redirect_url+= `&channel_id=${payload.channel_id}`
+		if (!contract_name && payload.team_domain) redirect_url+= `&team_domain=${payload.team_domain}`
+		if (!contract_name && payload.response_url) redirect_url+= `&response_url=${payload.response_url}`
 		console.log('generateWalletLoginURL requestSignIn Start')
 
 		// const currentUrl = new URL(window.location.href);
 		let login_url = options.walletUrl + '/login/'
-		login_url +='?success_url='+redirect_url
+		login_url +='?success_url='+encodeURIComponentForFirebase(redirect_url)
 		// login_url +='&failure_url='+redirect_url
+		login_url +='&context=testString'
 		if (contract_name) {
-			let userDoc = db.collection('users').doc(createUserDocId(slack_username))
+			let userDoc = db.collection('users').doc(createUserDocId(payload.user_name))
 			/* Throws exception if contract account does not exist */
 			// await account.state();
 			const accessKey = KeyPair.fromRandom('ed25519')

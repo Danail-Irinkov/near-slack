@@ -61,7 +61,8 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 		}
 
 		await slack.installer.handleCallback(req, res)
-
+		let slack_redirect_url = `https://proccmaingmai-tc79872.slack.com/archives/C02RKJC9DE3`
+		// res.header("Location", slack_redirect_url).send(302);
 		res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=slack`).send(302);
 	} catch (e) {
 		fl.error(e)
@@ -70,32 +71,37 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 	}
 });
 
-// Adding URL parameters to nearLoginRedirect hook
-const express = require('express');
-const cors = require('cors');
-const app = express();
-app.use(cors({ origin: true }));
-app.get('/:slack_username?', async (req, res) => {
+exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
 	try {
 		if(!req.query.account_id || !req.query.all_keys) return res.status(502).end('Missing required fields')
 		fl.log(req.query, 'nearLoginRedirect query')
 
-		if (req.params.slack_username){
+		let response_url = req.query.response_url || ''
+		let team_domain = req.query.team_domain || ''
+		let channel_id = req.query.channel_id || ''
+
+		let slack_redirect_url // URL to redirect the user directly to Slack App
+		if (team_domain && channel_id)
+		   slack_redirect_url = `https://${team_domain}.slack.com/archives/${channel_id}`
+
+		if (req.query.slack_username){
 			// Initial Slack User Login
-			let userDoc = await db.collection('users').doc(slack.createUserDocId(req.params.slack_username))
+			let userDoc = await db.collection('users').doc(slack.createUserDocId(req.query.slack_username))
 			await userDoc.update({
 				near_account: req.query.account_id,
 				near_fn_key: req.query.all_keys,
 			})
-			let response_url = (await userDoc.get()).data().response_url
+
 			if (response_url) {
 				await sendDataToResponseURL(response_url, {
-					text: req.query.account_id+' Logged In',
+					text: 'Logged In as ' + req.query.account_id,
 					replace_original: true, // NOT WORKING ... TODO: FIx
 					delete_original: true // NOT WORKING ... TODO: FIx replace of last message with buttons
 				})
 			}
-			res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=login`).send(302);
+
+			let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=login`
+			res.header("Location", slack_redirect_url || frontend_success).send(302);
 		} else {
 			// Creating Contract FunctionCall Access Key
 			let { user, doc_id, contract_id } = await getUserByNearAccountAndPublicKey(req.query.account_id, req.query.public_key)
@@ -103,7 +109,8 @@ app.get('/:slack_username?', async (req, res) => {
 			if (req.query.all_keys && req.query.public_key) {
 				await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'active' })
 
-				res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function&contract_id=${req.query.contract_id}`).send(302);
+				let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function&contract_id=${req.query.contract_id}`
+				res.header("Location", slack_redirect_url || frontend_success).send(302);
 			} else {
 				if(contract_id)
 					await userDoc.update({ ['fc_keys.'+contract_id+'.status']: 'failed' })
@@ -124,7 +131,6 @@ app.get('/:slack_username?', async (req, res) => {
 		return res.status(502).end('Oops, this is our fault, NEAR Login Redirect has Failed')
 	}
 });
-exports.nearLoginRedirect = functions.https.onRequest(app);
 
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
 	console.log('loginPubSub Start')

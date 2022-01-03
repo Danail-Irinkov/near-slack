@@ -59,6 +59,7 @@ module.exports = function (db, functions) {
 		try {
 			// console.log('login payload', payload)
 			fl.log('login token', payload.token)
+			fl.log('login payload', payload)
 
 			let userDoc = await db.collection('users').doc(createUserDocId(payload.user_name)).get()
 
@@ -93,7 +94,7 @@ module.exports = function (db, functions) {
 					]
 				}
 				if (commands[1] && validateNEARAccount(commands[1])) {
-					let wallet_url = await near.generateWalletLoginURL(payload.user_name, commands[1])
+					let wallet_url = await near.generateWalletLoginURL(payload, commands[1])
 					response.attachments[0].actions.push({
 						type: "button",
 						style: "primary",
@@ -101,8 +102,8 @@ module.exports = function (db, functions) {
 						url: wallet_url
 					})
 				} else {
-					let wallet_url = await near.generateWalletLoginURL(payload.user_name, 'any.near')
-					let testnet_wallet_url = await near.generateWalletLoginURL(payload.user_name, 'any.testnet')
+					let wallet_url = await near.generateWalletLoginURL(payload, 'any.near')
+					let testnet_wallet_url = await near.generateWalletLoginURL(payload, 'any.testnet')
 					response.attachments[0].actions.push({
 						type: "button",
 						style: "primary",
@@ -163,7 +164,7 @@ module.exports = function (db, functions) {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
 			if (!near.userHasActiveContractFCKey(user, commands[1])) {
-				let wallet_login_url = await near.generateWalletLoginURL(payload.user_name, user.near_account, commands[1], [])
+				let wallet_login_url = await near.generateWalletLoginURL(payload, user.near_account, commands[1], [])
 				return {
 					text: 'No Function Call Access Key found for '+commands[1],
 					response_type: 'ephemeral',
