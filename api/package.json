@@ -6,7 +6,9 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "test": "cross-env HIDE_LOGS=true mocha --timeout 10000",
+    "testdev": "mocha --timeout 10000"
   },
   "engines": {
     "node": "16",
@@ -30,7 +32,10 @@
     "open": "^8.4.0"
   },
   "devDependencies": {
-    "firebase-functions-test": "^0.3.3"
+    "chai": "^4.3.4",
+    "firebase-functions-test": "^0.3.3",
+    "mocha": "^9.1.3",
+    "sinon": "^12.0.1"
   },
   "private": true
 }

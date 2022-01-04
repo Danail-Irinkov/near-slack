@@ -480,6 +480,8 @@ module.exports = function (db, functions) {
 	function stringifyResponse(near_res = null) {
 		if (typeof near_res === 'string')
 			return near_res
+		else if (near_res.type)
+			return String(near_res.type)
 		else if (typeof near_res === 'object' || near_res instanceof Array)
 			return JSON.stringify(near_res, null, 2)
 		else if (near_res)
@@ -487,6 +489,7 @@ module.exports = function (db, functions) {
 		else
 			return 'Success'
 	}
+	global.stringifyResponse = stringifyResponse
 	return {
 		installer,
 		login,
@@ -529,6 +532,8 @@ async function handleMissingContractFCKey(payload, user, commands) {
 			{
 				color: '#4fcae0',
 				attachment_type: 'default',
+				callback_id: 'FCkey_from_help',
+				fallback: '/near login',
 				actions: [
 					{
 						type: 'button',

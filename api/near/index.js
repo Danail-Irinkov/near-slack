@@ -163,12 +163,16 @@ async function viewAccount(options) {
 };
 async function scheduleFunctionCall(options) {
 	try {
+		fl.log('scheduleFunctionCall Start', options.deposit);
 		const deposit = options.depositYocto ? options.depositYocto : options.deposit ? utils.format.parseNearAmount(options.deposit) : 0;
 
+		fl.log('scheduleFunctionCall deposit', deposit);
 		const near = await connect(options);
 		const account = await near.account(options.accountId);
+		fl.log('scheduleFunctionCall options.args', options.args);
 		const parsedArgs = options.base64 ? Buffer.from(options.args, 'base64') : JSON.parse(options.args || '{}');
-		console.log('Doing account.functionCall()');
+		fl.log('scheduleFunctionCall parsedArgs', parsedArgs);
+
 
 		console.time('functionCall result');
 		let params = {
@@ -185,7 +189,7 @@ async function scheduleFunctionCall(options) {
 		fl.log('getTransactionLastResult result', result);
 		return result
 	} catch (e) {
-		return Promise.reject(JSON.stringify(e.kind))
+		return Promise.reject(JSON.stringify(e))
 	}
 }
 async function callViewFunction(options) {

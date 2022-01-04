@@ -7,9 +7,20 @@
 		"source": "./"
 	},
 	"emulators": {
+		"functions": {
+			"port": 5001
+		},
 		"hosting": {
-			"port": 4444,
-			"host": "0.0.0.0"
+			"port": 5000
+		},
+		"ui": {
+			"enabled": true
+		},
+		"firestore": {
+			"port": 8080
+		},
+		"pubsub": {
+			"port": "8085"
 		}
 	}
 }

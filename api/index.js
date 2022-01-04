@@ -45,42 +45,53 @@ exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (
 	// console.log('loginPubSub Start', message)
 	if (!message.data) return
 
-	try {
-		const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
-		// console.log('loginPubSub data', data)
-		const payload = data.payload
-		const commands = data.commands
-		// console.log('loginPubSub payload', payload)
-		// console.log('loginPubSub commands', commands)
+	const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+	// console.log('loginPubSub data', data)
+	const payload = data.payload
+	const commands = data.commands
+	// console.log('loginPubSub payload', payload)
+	// console.log('loginPubSub commands', commands)
 
+	try {
 		let login_data = await slack.login(payload, commands, fl)
 		fl.log('slack.login Success Start'+JSON.stringify(login_data))
 
 		await sendDataToResponseURL(payload.response_url, login_data)
 	} catch (e) {
 		fl.log('loginPubSub err: '+JSON.stringify(e))
+		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + e.message })
 	}
 })
 
 exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').onPublish(async (message) => {
-	console.log('slackCallContractFlow PubSub Start')
-	// console.log('slackCallContractFlow Start', message)
-	if (!message.data) return
+	fl.log('slackCallContractFlow PubSub Start')
+	console.log('slackCallContractFlow Start', message)
+	let data
+	if (message.data)
+		data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+	else if (message.payload && message.commands)
+		data = message
+	else
+		return 'Bad Input'
+
+	// console.log('slackCallContractFlow data', data)
+	const payload = data.payload
+	const commands = data.commands
+	fl.log('slackCallContractFlow payload', payload)
+	fl.log('slackCallContractFlow commands', commands)
 
 	try {
-		const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
-		// console.log('slackCallContractFlow data', data)
-		const payload = data.payload
-		const commands = data.commands
-		fl.log('slackCallContractFlow payload', payload)
-		fl.log('slackCallContractFlow commands', commands)
-
 		let call_res = await slack.call(payload, commands, fl)
 		fl.log('slackCallContractFlow after Call', call_res)
 
 		await sendDataToResponseURL(payload.response_url, call_res)
+		return call_res
 	} catch (e) {
-		fl.log('slackCallContractFlow err: '+JSON.stringify(e))
+		functions.logger.log(e);
+		fl.log('slackCallContractFlow err: ', e)
+		fl.log('slackCallContractFlow err3: '+e.message)
+		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + stringifyResponse(e) })
+		return Promise.reject(e)
 	}
 })
 
@@ -167,7 +178,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				const messageBuffer = Buffer.from(JSON.stringify(messageObject), 'utf8');
 
 				// Publishes a message
-				await topic.publish(messageBuffer);
+				await topic.publishMessage({ json: messageObject});
 				//END  (using PubSUb)
 
 				response = {
@@ -275,7 +286,8 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		if(response) {
 			if (typeof response === 'string')
 				response = { text: response }
-			res.send(response)
+
+			res.send({...response, payload, commands})
 		} else
 			res.end()
 	} catch (e){
@@ -428,6 +440,8 @@ function formatErrorMsg(e) {
 		err_msg += e.message.replace(/([A-Z])/g, " $1");
 	else if (e.error)
 		err_msg += e.error.replace(/([A-Z])/g, " $1");
+	else if (typeof e === 'object' && e.text)
+		err_msg = e
 
 	return err_msg
 }
@@ -509,7 +523,7 @@ async function parseSlackCommands(payload) {
 	// Handling Payload from Interactive Help Menu - END
 	commands = commands.replace('  ', ' ')
 	let commands_array = commands.split(' ')
-	// console.log('commands_array1', commands_array)
+	fl.log('commands_array1', commands_array)
 
 	if (commands_array[0] === 'call' && commands_array[3]){
 		// Parsing JSON arguments Input
@@ -525,11 +539,16 @@ async function parseSlackCommands(payload) {
 		} catch (e) {
 			return Promise.reject('Arguments are not a valid JSON')
 		}
-		commands = commands.replace(commands.substring(first_json_index, last_json_index+2), '')
+		fl.log('commands.replace1', commands)
+		fl.log('commands.substring', commands.substring(first_json_index, last_json_index+1))
+		commands = commands.replace(commands.substring(first_json_index, last_json_index+1), '')
+		fl.log('commands.replaced2', commands)
 		commands_array = commands.split(' ')
-		commands_array.splice(2,0, json_str)
+		fl.log('commands.split2', commands_array)
+		commands_array.splice(3,0, json_str)
+		fl.log('commands.spliced', commands_array)
 	}
-	console.log('commands_array3', commands_array)
+	fl.log('commands_array3', commands_array)
 	return commands_array
 }
 function IsJsonString(str) {
