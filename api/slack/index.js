@@ -157,27 +157,27 @@ module.exports = function (db, functions) {
 			// 	payload.text = `Sender and receiver must be in the same NEAR network`
 			// 	return payload
 			// }
-			
+
 			const config = { ...getConfig(senderIdNet), keyStore: new keyStores.InMemoryKeyStore()};
 			const near = await connect(config);
 			const account = await near.account(senderId);
 			// const wallet = new WalletConnection(nearConnection)
 			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
 			let key = (await account.getAccessKeys())
-				.filter(key => key.access_key.permission === 'FullAccess')[0]; 
-			
+				.filter(key => key.access_key.permission === 'FullAccess')[0];
+
 			if (key === undefined)
 				return `${senderId} doens't have any full access keys. Cannot send near.`;
-			
+
 			key = utils.key_pair.PublicKey.from(key.public_key);
-			
+
 			const action = transfer(amount);
-			
+
 			// It seems that nonce and block hash can be random values
 			const nonce = 7560000005;
 			const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256));
 			const transaction = createTransaction(senderId, key, receiverId, 7560000005, [action], blockHash);
-			
+
 			const transactionSerialized = serialize(SCHEMA, transaction);
 			const serchParams = {
 				transactions: Buffer.from(transactionSerialized).toString('base64'),
@@ -197,6 +197,8 @@ module.exports = function (db, functions) {
 	async function view (payload, commands, fl) {
 		try {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
+			if (!user.near_account)
+				return Promise.reject('Please Login using /near login')
 
 			let options = near.getConnectOptions(null,
 				near.getNetworkFromAccount(commands[1]),
@@ -210,8 +212,14 @@ module.exports = function (db, functions) {
 			console.log('SLACK view result', result)
 			return commands[2]+'(): ' + stringifyResponse(result)
 		} catch (e) {
-			console.log('near-cli view err: ', e)
-			return Promise.reject(e)
+			fl.log('near-cli view err1: ', e)
+			console.log('near-cli view err1: ', e.method_name)
+			console.log('near-cli view err2: ', e.error)
+			console.log('near-cli view err3: ', e.block_hash)
+			// if (e.error.method_name && e.error.method_name === 'signer_account_id')
+				return Promise.reject('You are most probably calling a Contract Change method with view, try /near call')
+			// else
+			// 	return Promise.reject(e)
 		}
 
 	}
@@ -222,13 +230,16 @@ module.exports = function (db, functions) {
 			// TODO: Add support for attaching deposit to call
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
+			if (!user.near_account)
+				return Promise.reject('Please Login using /near login')
+
 			fl.log(commands, 'call commands2')
 			if (!near.userHasActiveContractFCKey(user, commands[1])) {
 				fl.log(commands, 'call commands3')
 				return await handleMissingContractFCKey(payload, user, commands)
 			}
 
-			let keyStore = near.generateKeyStore(
+			let keyStore = await near.generateKeyStore(
 				near.getNetworkFromAccount(user.near_account),
 				user.near_account,
 				near.getUserContractFCPrivateKey(user, commands[1])
@@ -242,11 +253,14 @@ module.exports = function (db, functions) {
 					args: commands[3],
 					deposit: commands[4],
 				})
+			fl.log('SLACK call options', options)
 			let result = await near.scheduleFunctionCall(options)
-			console.log('SLACK view result', result)
-			return commands[2]+'(): ' + stringifyResponse(result)
+			fl.log('SLACK call result2', result)
+			return {
+				text: commands[2]+'(): ' + stringifyResponse(result)
+			}
 		} catch (e) {
-			console.log('near-cli call err: ', e)
+			fl.log('near-cli call err: ', e)
 			return Promise.reject(e)
 		}
 	}

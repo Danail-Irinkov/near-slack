@@ -48,13 +48,26 @@ function userHasActiveContractFCKey (user, contract_name) {
 function getUserContractFCPrivateKey (user, contract_name) {
 	let near_acc_key = createUserDocId(user.near_account)
 	let contract_key = createUserDocId(contract_name)
+	fl.log('call near_acc_key', near_acc_key)
+	fl.log('call contract_key', contract_key)
+	fl.log('call getUserContractFCPrivateKey', user.near[near_acc_key].contracts[contract_key])
 	return user.near[near_acc_key].contracts[contract_key].private_key
 }
 
 async function generateKeyStore(network, account, access_key) {
-	const keyStore = new keyStores.InMemoryKeyStore()
-	const keyPair = KeyPair.fromString(access_key)
-	return keyStore.setKey(network, account, keyPair)
+	try {
+		fl.log('generateKeyStore network', network)
+		fl.log('generateKeyStore account', account)
+		fl.log('generateKeyStore access_key', access_key)
+		const keyStore = new keyStores.InMemoryKeyStore()
+		const keyPair = KeyPair.fromString(access_key)
+		await keyStore.setKey(network, account, keyPair)
+		fl.log('generateKeyStore keyStore', keyStore)
+
+		return keyStore
+	} catch (e) {
+		return Promise.reject(e)
+	}
 }
 function encodeURIComponentForFirebase(str) {
 	return encodeURIComponent(str).replace(/[\.\#\$\[\]]/g, function (c) {
@@ -71,12 +84,13 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 			})
 
 		let redirect_url = `https://us-central1-near-api-1d073.cloudfunctions.net/nearLoginRedirect/`
-		if (!contract_name && payload.user_name) redirect_url+= `?slack_username=${payload.user_name}`
-		if (!contract_name && payload.channel_id) redirect_url+= `&channel_id=${payload.channel_id}`
-		if (!contract_name && payload.team_domain) redirect_url+= `&team_domain=${payload.team_domain}`
-		if (!contract_name && payload.response_url) redirect_url+= `&response_url=${payload.response_url}`
-		if (!contract_name && redirect) redirect_url+= `&redirect=${redirect}`
-		console.log('generateWalletLoginURL requestSignIn Start')
+		if (payload.user_name) redirect_url+= `?slack_username=${payload.user_name}`
+		if (payload.channel_id) redirect_url+= `&channel_id=${payload.channel_id}`
+		if (payload.team_domain) redirect_url+= `&team_domain=${payload.team_domain}`
+		if (payload.response_url) redirect_url+= `&response_url=${payload.response_url}`
+		if (payload.text) redirect_url+= `&text=${payload.text}`
+		if (redirect) redirect_url+= `&redirect=${redirect}`
+		console.log('generateWalletLoginURL requestSignIn Start', redirect_url)
 
 		// const currentUrl = new URL(window.location.href);
 		let login_url = options.walletUrl + '/login/'
@@ -148,40 +162,41 @@ async function viewAccount(options) {
 	return state
 };
 async function scheduleFunctionCall(options) {
-	const deposit = options.depositYocto ? options.depositYocto : options.deposit ? utils.format.parseNearAmount(options.deposit) : 0;
-
-	const near = await connect(options);
-	const account = await near.account(options.accountId);
-	const parsedArgs = options.base64 ? Buffer.from(options.args, 'base64') : JSON.parse(options.args || '{}');
-	console.log('Doing account.functionCall()');
 	try {
-		const functionCallResponse = await account.functionCall({
+		const deposit = options.depositYocto ? options.depositYocto : options.deposit ? utils.format.parseNearAmount(options.deposit) : 0;
+
+		const near = await connect(options);
+		const account = await near.account(options.accountId);
+		const parsedArgs = options.base64 ? Buffer.from(options.args, 'base64') : JSON.parse(options.args || '{}');
+		console.log('Doing account.functionCall()');
+
+		console.time('functionCall result');
+		let params = {
 			contractId: options.contractName,
 			methodName: options.methodName,
 			args: parsedArgs,
-			attachedDeposit: deposit,
-		});
+		}
+		if (deposit) params.attachedDeposit = deposit
+
+		const functionCallResponse = await account.functionCall(params);
 		const result = providers.getTransactionLastResult(functionCallResponse);
 		// inspectResponse.prettyPrintResponse(functionCallResponse, options);
-		console.log('getTransactionLastResult result'+ JSON.parse(result));
+		console.timeEnd('functionCall result');
+		fl.log('getTransactionLastResult result', result);
 		return result
-	} catch (error) {
-		switch (JSON.stringify(error.kind)) {
-			case '{"ExecutionError":"Exceeded the prepaid gas."}': {
-				handleExceededThePrepaidGasError(error, options);
-				break;
-			}
-			default: {
-				console.log(error);
-			}
-		}
+	} catch (e) {
+		return Promise.reject(JSON.stringify(e.kind))
 	}
 }
 async function callViewFunction(options) {
-	console.log(`View call: ${options.contractName}.${options.methodName}(${options.args || ''})`);
-	const near = await connect(options);
-	const account = await near.account(options.accountId || options.masterAccount || options.contractName);
-	return account.viewFunction(options.contractName, options.methodName, JSON.parse(options.args || '{}'))
+	try {
+		console.log(`View call: ${options.contractName}.${options.methodName}(${options.args || ''})`);
+		const near = await connect(options);
+		const account = await near.account(options.accountId || options.masterAccount || options.contractName);
+		return account.viewFunction(options.contractName, options.methodName, JSON.parse(options.args || '{}'))
+	} catch (e) {
+		return Promise.reject(e)
+	}
 }
 async function sendMoney (options) {
 	await checkCredentials(options.sender, options.networkId, options.keyStore);
