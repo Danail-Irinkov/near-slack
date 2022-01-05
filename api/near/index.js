@@ -1,4 +1,5 @@
 const { connect: nearConnect, utils, providers, keyStores, KeyPair, transactions} = require('near-api-js')
+const { parseContract } = require('near-contract-parser');
 // const chalk = require('chalk')
 // const inspectResponse = require('./utils/inspect-response')
 // const checkCredentials = require('./utils/check-credentials')
@@ -151,7 +152,7 @@ async function keys(options) {
 	return accessKeys
 };
 
-async function viewAccount(options) {
+async function account(options) {
 	let near = await connect(options);
 	let account = await near.account(options.accountId);
 	let state = await account.state();
@@ -160,6 +161,12 @@ async function viewAccount(options) {
 	}
 	console.log(`Account ${options.accountId}`, state);
 	return state
+};
+async function balance(options) {
+	let near = await connect(options);
+	let account = await near.account(options.accountId);
+	let state = await account.state();;
+	return  'N' + utils.format.formatNearAmount(state.amount || 0 )
 };
 async function scheduleFunctionCall(options) {
 	try {
@@ -209,6 +216,19 @@ async function sendMoney (options) {
 	const account = await near.account(options.sender);
 	const result = await account.sendMoney(options.receiver, utils.format.parseNearAmount(options.amount));
 	// inspectResponse.prettyPrintResponse(result, options);
+}
+async function viewContract (options) {
+	try {
+		const near = await connect(options);
+		const { code_base64 } = await near.connection.provider.query({
+			account_id: options.accountId,
+			finality: 'final',
+			request_type: 'view_code',
+		});
+		return parseContract(code_base64)
+	}catch (e) {
+		return Promise.reject(e)
+	}
 }
 
 // TODO: Rework near-cli deploy to work with our backend
@@ -370,7 +390,9 @@ module.exports = {
 	getNetworkFromAccount,
 	getConnectOptions,
 	keys,
-	viewAccount,
+	account,
+	balance,
+	viewContract,
 	scheduleFunctionCall,
 	callViewFunction,
 	sendMoney,

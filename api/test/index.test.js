@@ -1,6 +1,6 @@
 const path = require('path')
 const service_account_key_path = path.resolve('near-api-1d073-beca07097e06.json')
-const test = require('firebase-functions-test')({
+const test =  require('firebase-functions-test')({
 	databaseURL: `https://${process.env.GCLOUD_PROJECT}.firebaseio.com`,
 	storageBucket: `${process.env.GCLOUD_PROJECT}.appspot.com`,
 	projectId: `${process.env.GCLOUD_PROJECT}`,
@@ -34,7 +34,7 @@ const slackHookData = {
 	response_url: 'https://hooks.slack.com/commands/T02MCFBJMUH/2867751902902/UGlFPuHJFzqWb9w3tSjvfFQU'
 }
 
-describe('Cloud Functions', () => {
+describe('Slack Cloud Functions', () => {
 	let myFunctions
 	let testSlackCall1
 
@@ -56,11 +56,14 @@ describe('Cloud Functions', () => {
 		test.cleanup();
 	});
 
+	// describe("Call123", require('./call.test.js').bind(this));
 	let payload, commands
+
 	describe('/near call devtest.testnet sayHi', () => {
 		it('should return slack response object', (done) => {
 			// A fake request object, with req.query.text set to 'input'
 			const req = {
+				add_payload_and_commands: true,
 				body: {
 					...slackHookData,
 					text: 'call devtest.testnet sayHi'
@@ -72,33 +75,37 @@ describe('Cloud Functions', () => {
 				set: (a, b) => {},
 				end: () => {},
 				send: (res) => {
-					console.log('myFunctions send', res)
-					// extract payload and commands
-					payload = {...res.payload}
-					commands = [...res.commands]
-					delete res.payload
-					delete res.commands
+					try {
+						console.log('myFunctions send', res)
+						// extract payload and commands
+						payload = {...res.payload}
+						commands = [...res.commands]
+						delete res.payload
+						delete res.commands
 
-					// Assert code
-					console.log('Response slackHook', res)
-					assert.deepStrictEqual(res,
-						{
-							text: 'Processing Function Call...',
-							response_type: 'ephemeral'
-						})
+						// Assert code
+						console.log('Response slackHook', res)
+						assert.deepStrictEqual(res,
+							{
+								text: 'Processing Function Call...',
+								response_type: 'ephemeral'
+							})
 
-					console.log('\nResponse payload', payload)
-					console.log('Response payload\n')
-					assert.isTrue(!!payload.user_name)
-					assert.isTrue(!!payload.team_domain)
-					assert.isTrue(!!payload.token)
-					assert.isTrue(!!payload.response_url)
+						console.log('\nResponse payload', payload)
+						console.log('Response payload\n')
+						assert.isTrue(!!payload.user_name)
+						assert.isTrue(!!payload.team_domain)
+						assert.isTrue(!!payload.token)
+						assert.isTrue(!!payload.response_url)
 
-					console.log('\nResponse commands', commands)
-					console.log('Response commands\n')
-					assert.isTrue(commands.indexOf('devtest.testnet') === 1)
-					assert.isTrue(commands.indexOf('sayHi') === 2)
-					done();
+						console.log('\nResponse commands', commands)
+						console.log('Response commands\n')
+						assert.isTrue(commands.indexOf('devtest.testnet') === 1)
+						assert.isTrue(commands.indexOf('sayHi') === 2)
+						done();
+					} catch (e) {
+						done(e)
+					}
 				}
 			};
 
@@ -106,29 +113,37 @@ describe('Cloud Functions', () => {
 		});
 	})
 
-	describe('/near call devtest.testnet sayHi-> PubSub', () => {
-		it('should return success', async () => {
-			try {
-				const messageObject = {
-					payload: payload,
-					commands: commands
-				};
-				console.log('\nResponse messageObject', messageObject)
-				console.log('Response messageObject\n')
-
-				let res = await myFunctions.slackCallContractFlow.run(messageObject, {})
-				console.log('slackCallContractFlow res', res)
-				if (res.text)
-					return Promise.resolve(res.text)
-				else
-					throw res
-
-			} catch (e) {
-				console.error('slackCallContractFlow err', e)
-				return Promise.reject(e)
-			}
-		});
-	})
+	// describe('/near call devtest.testnet sayHi-> PubSub', () => {
+	// 	before(() => {
+	// 			sinon.stub(global, 'sendDataToResponseURL')
+	// 	});
+	//
+	// 	after(() => {
+	// 		global.sendDataToResponseURL.restore()
+	// 	});
+	//
+	// 	it('should return success', async () => {
+	// 		try {
+	// 			const messageObject = {
+	// 				payload: payload,
+	// 				commands: commands
+	// 			};
+	// 			console.log('\nResponse messageObject', messageObject)
+	// 			console.log('Response messageObject\n')
+	//
+	// 			let res = await myFunctions.slackCallContractFlow.run(messageObject, {})
+	// 			console.log('slackCallContractFlow res', res)
+	// 			if (res.text)
+	// 				return Promise.resolve(res.text)
+	// 			else
+	// 				throw res
+	//
+	// 		} catch (e) {
+	// 			console.error('slackCallContractFlow err', e)
+	// 			return Promise.reject(e)
+	// 		}
+	// 	});
+	// })
 
 	describe('/near view devtest.testnet whoSaidHi', () => {
 		it('should return slack response object', (done) => {
@@ -144,10 +159,14 @@ describe('Cloud Functions', () => {
 				set: (a, b) => {},
 				end: () => {},
 				send: (res) => {
-					// Assert code
-					console.log('Response slackHook', res)
-					assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
-					done();
+					try {
+						// Assert code
+						console.log('Response slackHook', res)
+						assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
+						done();
+					} catch (e) {
+						done(e)
+					}
 				}
 			};
 
@@ -155,4 +174,103 @@ describe('Cloud Functions', () => {
 		});
 	})
 
+	describe('/near balance', () => {
+		it('returns slack response object', (done) => {
+			// A fake request object, with req.query.text set to 'input'
+			const req = {
+				body: {
+					...slackHookData,
+					text: 'balance'
+				},
+			};
+			// A fake response object, with a stubbed redirect function which does some assertions
+			const res = {
+				set: (a, b) => {},
+				end: () => {},
+				send: (res) => {
+					try {
+						// Assert code
+						console.log('balance slackHook', res)
+						// assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
+						done();
+					} catch (e) {
+						done(e)
+					}
+				}
+			};
+
+			myFunctions.slackHook(req, res);
+		});
+	})
+
+	describe('/near contract devtest.testnet', () => {
+		it('returns slack response object', (done) => {
+			// A fake request object, with req.query.text set to 'input'
+			const req = {
+				body: {
+					...slackHookData,
+					text: 'contract devtest.testnet'
+				},
+			};
+			// A fake response object, with a stubbed redirect function which does some assertions
+			const res = {
+				set: (a, b) => {},
+				end: () => {},
+				send: (res) => {
+					try {
+						// Assert code
+						console.log('contract slackHook', res)
+						assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+						done();
+					} catch (e) {
+						done(e)
+					}
+				}
+			};
+
+			myFunctions.slackHook(req, res);
+		});
+	})
+
+	describe('/near contract devtest_fake.testnet', () => {
+		it('returns slack response object', (done) => {
+			try {
+				// A fake request object, with req.query.text set to 'input'
+				const req = {
+					body: {
+						...slackHookData,
+						text: 'contract devtest_fake.testnet'
+					},
+				};
+				// A fake response object, with a stubbed redirect function which does some assertions
+				const res = {
+					set: (a, b) => {},
+					end: () => {},
+					send: (res) => {
+						// Assert code
+						try {
+							console.log('contract fail slackHook', res)
+							assert.isTrue(!!(res.text && res.text.indexOf('Account Does Not Exist') !== -1))
+							done();
+						} catch (e) {
+							done(e)
+					}
+					}
+				};
+
+				myFunctions.slackHook(req, res);
+			} catch (e) {
+				done(e)
+			}
+		});
+	})
+
 })
+
+
+// function importTest(name, path) {
+// 	describe(name, function () {
+// 		require(path).bind(this);
+// 	});
+// }
+

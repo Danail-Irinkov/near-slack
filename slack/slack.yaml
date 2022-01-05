@@ -21,7 +21,7 @@ features:
     - command: /near
       url: https://us-central1-near-api-1d073.cloudfunctions.net/slackHook
       description: Access NEAR Protocol in the same way as using the near-cli
-      usage_hint: /near help
+      usage_hint: help
       should_escape: false
 oauth_config:
   redirect_urls:

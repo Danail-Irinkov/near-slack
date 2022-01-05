@@ -1,6 +1,6 @@
 process.env.GCLOUD_PROJECT = 'near-api-1d073'
 const { getAnalytics } = require('firebase/analytics')
-const { initializeApp, cert } = require('firebase-admin/app')
+const { initializeApp, cert, getApps } = require('firebase-admin/app')
 const { getFirestore, FieldValue } = require('firebase-admin/firestore')
 const functions = require('firebase-functions')
 const fs = require('fs')
@@ -20,25 +20,31 @@ const firebaseConfig = {
 	appId: "1:77148669093:web:0723fee1a7ba423907394c",
 	measurementId: "G-DGTKFVLVL2"
 };
-if(fs.existsSync('./near-api-1d073-firebase-adminsdk-fyizi-d7f7e50e8c.json')) {
+if(fs.existsSync('./near-api-1d073-firebase-adminsdk-fyizi-d7f7e50e8c.json') && !firebaseConfig.credential) {
 	const serviceAccount = require("./near-api-1d073-firebase-adminsdk-fyizi-d7f7e50e8c.json");
 	firebaseConfig.credential = cert(serviceAccount)
 }
 
-const firebaseApp = initializeApp(firebaseConfig)
+// if (getApps().length === 0)
+initializeApp(firebaseConfig)
+
 // console.log('BEFORE ERR 2', firebaseApp)
 // const analytics = getAnalytics(firebaseApp)
 // console.log('BEFORE ERR 3')
+// if (typeof db === 'undefined') {
 const db = getFirestore()
 db.settings({ ignoreUndefinedProperties: true })
 global.db = db
-
+// global.db = getFirestore().settings({ ignoreUndefinedProperties: true })
+// }
 // const slack = {}
-const slack = require('./slack')(db, functions)
-global.slack = slack
-const fl = functions.logger //Logging shortcut
-global.fl = fl
-
+// if(typeof slack === 'undefined') {
+	global.slack = require('./slack')(db, functions)
+// }
+// if(typeof fl === 'undefined') {
+	 //Logging shortcut
+	global.fl = functions.logger
+// }
 
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
 	console.log('loginPubSub Start')
@@ -53,7 +59,7 @@ exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (
 	// console.log('loginPubSub commands', commands)
 
 	try {
-		let login_data = await slack.login(payload, commands, fl)
+		let login_data = await slack.login(payload, commands)
 		fl.log('slack.login Success Start'+JSON.stringify(login_data))
 
 		await sendDataToResponseURL(payload.response_url, login_data)
@@ -81,15 +87,13 @@ exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').
 	fl.log('slackCallContractFlow commands', commands)
 
 	try {
-		let call_res = await slack.call(payload, commands, fl)
+		let call_res = await slack.call(payload, commands)
 		fl.log('slackCallContractFlow after Call', call_res)
 
 		await sendDataToResponseURL(payload.response_url, call_res)
 		return call_res
 	} catch (e) {
-		functions.logger.log(e);
-		fl.log('slackCallContractFlow err: ', e)
-		fl.log('slackCallContractFlow err3: '+e.message)
+		fl.log(e);
 		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + stringifyResponse(e) })
 		return Promise.reject(e)
 	}
@@ -213,7 +217,29 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					break
 				}
 
-				response = await slack.account(payload, commands, fl)
+				response = await slack.account(payload, commands)
+				break
+			case 'balance':
+				console.log('before slack.balance')
+				if (!commands[1]) { // account missing, Getting logged in account for slack user
+					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
+				} else if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+
+				response = await slack.balance(payload, commands)
+				break
+			case 'contract':
+				console.log('before slack.contract')
+				if (!commands[1]) { // account missing, Getting logged in account for slack user
+					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
+				} else if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid Near Account'
+					break
+				}
+
+				response = await slack.contract(payload, commands)
 				break
 			case 'keys':
 				console.log('before slack.keys')
@@ -224,7 +250,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					break
 				}
 
-				response = await slack.keys(payload, commands, fl)
+				response = await slack.keys(payload, commands)
 				break
 			case 'call':
 				if (!validateNEARAccount(commands[1])) {
@@ -264,7 +290,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					break
 				}
 				console.log('before slack.view')
-				response = await slack.view(payload, commands, fl)
+				response = await slack.view(payload, commands)
 				break
 			case 'send':
 				if (!validateNEARAccount(commands[1])) {
@@ -272,7 +298,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					break
 				}
 				console.log('before slack.send')
-				response = await slack.send(payload, commands, fl)
+				response = await slack.send(payload, commands)
 				console.log('after slack.send')
 				break
 			case 'help':
@@ -286,8 +312,10 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		if(response) {
 			if (typeof response === 'string')
 				response = { text: response }
+			if (req.add_payload_and_commands)
+				response = {...response, payload, commands}
 
-			res.send({...response, payload, commands})
+			res.send(response)
 		} else
 			res.end()
 	} catch (e){
@@ -443,7 +471,7 @@ function formatErrorMsg(e) {
 	else if (typeof e === 'object' && e.text)
 		err_msg = e
 
-	return err_msg
+	return { text: err_msg }
 }
 async function getContractByAccountAndPublicKey(slack_username, near_account, public_key) {
 	let contract = {}

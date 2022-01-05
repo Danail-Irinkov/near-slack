@@ -60,7 +60,7 @@ module.exports = function (db, functions) {
 // 	if (!bool) return throw err_msg
 // }
 
-	async function login(payload, commands, fl) {
+	async function login(payload, commands) {
 		try {
 			// console.log('login payload', payload)
 			fl.log('login token', payload.token)
@@ -139,7 +139,7 @@ module.exports = function (db, functions) {
 	 * commands[2] = receiverId
 	 * commands[4] = amount in Ⓝ Near (1Ⓝ = 1 * 10^24 yoctoNear)
 	 * */
-	async function send(payload, commands, fl) {
+	async function send(payload, commands) {
 		try {
 			// if (userIsLoggedInWithNear(user)) return 'Please login'
 
@@ -194,7 +194,7 @@ module.exports = function (db, functions) {
 		}
 
 	}
-	async function view (payload, commands, fl) {
+	async function view (payload, commands) {
 		try {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 			if (!user.near_account)
@@ -223,7 +223,7 @@ module.exports = function (db, functions) {
 		}
 
 	}
-	async function call (payload, commands, fl) {
+	async function call (payload, commands) {
 		try {
 			fl.log(payload, 'call payload')
 			fl.log(commands, 'call commands')
@@ -265,14 +265,14 @@ module.exports = function (db, functions) {
 		}
 	}
 
-	async function account (payload, commands, fl) {
+	async function account (payload, commands) {
 		try {
 			let options = near.getConnectOptions(null,
 				near.getNetworkFromAccount(commands[1]),
 				{
 					accountId: commands[1]
 				})
-			let result = await near.viewAccount(options)
+			let result = await near.account(options)
 
 			return commands[1]+': ' + stringifyResponse(result)
 		} catch (e) {
@@ -280,7 +280,76 @@ module.exports = function (db, functions) {
 			return Promise.reject(e)
 		}
 	}
-	async function keys (payload, commands, fl) {
+
+	async function balance (payload, commands) {
+		try {
+			let options = near.getConnectOptions(null,
+				near.getNetworkFromAccount(commands[1]),
+				{
+					accountId: commands[1]
+				})
+			let result = await near.balance(options)
+
+			return commands[1]+': ' + stringifyResponse(result)
+		} catch (e) {
+			console.log('near-cli balance err: ', e)
+			return Promise.reject(e)
+		}
+	}
+
+	async function contract (payload, commands) {
+		try {
+			let options = near.getConnectOptions(null,
+				near.getNetworkFromAccount(commands[1]),
+				{
+					accountId: commands[1]
+				})
+			console.log('contract before viewContract')
+			let contract = await near.viewContract(options)
+			console.log('contract', contract)
+			let methods = contract.methodNames
+			let probableInterfaces = contract.probableInterfaces
+			console.log('contract methods', methods)
+
+			let text = `Contract methods for ${commands[1]}:\n`
+			if (probableInterfaces && probableInterfaces.length)
+				text = `Probable Interfaces: ${JSON.stringify(probableInterfaces, null, 2)}`
+			let select_options = []
+
+			for (let method of methods) {
+				select_options.push({
+					text: method,
+					value: `call ${commands[1]} ${method}`
+				})
+			}
+
+			return {
+				text: text,
+				// "response_type": "ephemeral ",
+				attachments: [
+					{
+						text: 'Choose a method',
+						fallback: 'No command chosen',
+						color: '#4fcae0',
+						attachment_type: 'default',
+						callback_id: 'command_help',
+						actions: [
+							{
+								name: 'methods_list',
+								text: 'Pick a method...',
+								type: 'select',
+								options: select_options
+							},
+						]
+					}
+				]
+			}
+		} catch (e) {
+			console.log('near-cli contract err: ', e)
+			return Promise.reject(e)
+		}
+	}
+	async function keys (payload, commands) {
 		try {
 			let options = near.getConnectOptions(null,
 				near.getNetworkFromAccount(commands[1]),
@@ -497,6 +566,8 @@ module.exports = function (db, functions) {
 		view,
 		call,
 		account,
+		balance,
+		contract,
 		keys,
 		help,
 		createUserDocId,
