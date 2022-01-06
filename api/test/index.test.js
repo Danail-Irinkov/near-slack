@@ -61,12 +61,41 @@ describe('Slack Cloud Functions', () => {
 	// describe("Call123", require('./call.test.js').bind(this));
 	let payload, commands
 
+	describe('Testing DB access health', () => {
+		it('Success', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'healthDB')
+				console.log('Testing DB access health res: ', res)
+				assert.isTrue(!!(
+					// res.write
+					// && res.doc.exists
+					// && res.deletion
+					res.deletion
+					// && !res.deleted_doc.exists
+				))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+
 	describe('/near create', () => {
 		it('should return slack response object', async () => {
 			try {
-				let res = await testSlackHook(myFunctions, 'create')
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'create')
 				console.log('/near create', res)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+	describe('/near delete personal data', () => {
+		it('should return slack response object', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data')
+				console.warn('/near delete personal data', res)
+				// assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 			}catch (e) {
 				return Promise.reject(e)
 			}
@@ -75,7 +104,7 @@ describe('Slack Cloud Functions', () => {
 	describe('/near call devtest.testnet sayHi', () => {
 		it('should return slack response object', async () => {
 			try {
-				let res = await testSlackHook(myFunctions, 'call devtest.testnet sayHi', {add_payload_and_commands: true})
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'call devtest.testnet sayHi', {add_payload_and_commands: true})
 				console.log('/near call devtest.testnet sayHi', res)
 				// extract payload and commands
 				payload = {...res.payload}
@@ -144,7 +173,7 @@ describe('Slack Cloud Functions', () => {
 	describe('/near view devtest.testnet whoSaidHi', () => {
 		it('should return slack response object', async () => {
 			try {
-					let res = await testSlackHook(myFunctions, 'view devtest.testnet whoSaidHi')
+					let res = await testHTTPFunction(myFunctions, 'slackHook', 'view devtest.testnet whoSaidHi')
 					console.log('Response /near view devtest.testnet whoSaidHi', res)
 					assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
 			} catch (e) {
@@ -156,7 +185,7 @@ describe('Slack Cloud Functions', () => {
 	describe('/near balance', () => {
 		it('returns slack response object', async () => {
 			try {
-				let res = await testSlackHook(myFunctions, 'balance')
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'balance')
 				console.log('Response /near balance', res)
 				assert.isTrue(!!res.text)
 			} catch (e) {
@@ -168,7 +197,7 @@ describe('Slack Cloud Functions', () => {
 	describe('/near contract devtest.testnet', () => {
 		it('returns slack response object', async () => {
 			try {
-				let res = await testSlackHook(myFunctions, 'contract devtest.testnet')
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract devtest.testnet')
 				console.log('Response /near contract devtest.testnet', res)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 			} catch (e) {
@@ -180,7 +209,7 @@ describe('Slack Cloud Functions', () => {
 	describe('/near contract devtest_fake.testnet', () => {
 		it('returns slack response object', async () => {
 			try {
-				let res = await testSlackHook(myFunctions, 'contract devtest_fake.testnet')
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract devtest_fake.testnet')
 				console.log('Response /near contract devtest_fake.testnet', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Account Does Not Exist') !== -1))
 			} catch (e) {
@@ -197,15 +226,15 @@ describe('Slack Cloud Functions', () => {
 // 	});
 // }
 
-function testSlackHook(myFunctions, params, request = {}) {
+function testHTTPFunction(myFunctions, function_name, params, manual_request = {}, manual_response = {}) {
 	return new Promise((resolve, reject) => {
 		try {
 			const req = {
-				...request,
 				body: {
 					...slackHookData,
 					text: params
 				},
+				...manual_request
 			};
 			// A fake response object, with a stubbed redirect function which does some assertions
 			const res = {
@@ -213,10 +242,11 @@ function testSlackHook(myFunctions, params, request = {}) {
 				end: () => {},
 				send: (res) => {
 					resolve(res);
-				}
+				},
+				...manual_response
 			};
 
-			myFunctions.slackHook(req, res);
+			myFunctions[function_name](req, res);
 		} catch (e) {
 			reject(e)
 		}

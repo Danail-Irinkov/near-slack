@@ -47,7 +47,7 @@ global.db = db
 // }
 
 
-exports.testDB = functions.https.onRequest(async (req, res) => {
+exports.healthDB = functions.https.onRequest(async (req, res) => {
 	let test_res = await exampleDBReadWriteDelete()
 	res.send(test_res);
 });
@@ -454,23 +454,33 @@ exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
 
 async function exampleDBReadWriteDelete() {
 	try {
-		const docRef = db.collection('users').doc('alovelace');
-		let result = await docRef.set({
-			first: 'Ada',
-			last: 'Lovelace',
-			born: 1815
-		});
-		console.log("Result: ", result);
+		console.log("exampleDBReadWriteDelete Start: ");
+		// const docRef = db.collection('users').doc('alovelace');
+		// let write = await docRef.set({
+		// 	first: 'Ada',
+		// 	last: 'Lovelace',
+		// 	born: 1815
+		// });
+		// console.log("exampleDBReadWriteDelete write: ", write);
 
-		const snapshot = await db.collection('users').get();
-		snapshot.forEach((doc) => {
-			console.log("User: ", doc.id, '=>', doc.data());
-		});
+		// const doc = await db.collection('users').doc('alovelace').get();
+		// // console.log("exampleDBReadWriteDelete user: ", doc.id, '=>', doc.data());
 
-		await db.collection('installations').delete(installQuery.enterpriseId)
-		return 'Database is working'
+		const deletion = await db.collection('users').doc('alovelace').delete()
+		// console.log("exampleDBReadWriteDelete deletion: ", deletion);
+
+		// const deleted_doc = await db.collection('users').doc('alovelace').get();
+		// // console.log("exampleDBReadWriteDelete Deleted User: ", deleted_doc);
+
+		return {
+			// write,
+			// doc,
+			deletion,
+			// deleted_doc
+		}
 	} catch (e) {
-		return 'Database ERROR' + JSON.stringify(e, null, 2)
+		console.log("exampleDBReadWriteDelete err: ", e);
+		return Promise.reject(e)
 	}
 
 }
