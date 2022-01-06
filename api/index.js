@@ -6,7 +6,6 @@ const functions = require('firebase-functions')
 const fs = require('fs')
 const axios = require('axios')
 const {PubSub} = require('@google-cloud/pubsub');
-const near = require('../near')
 const pubsub = new PubSub();
 
 // const pubsubs = require('./pubsubs.js') // TODO: extract pubsubs into this file

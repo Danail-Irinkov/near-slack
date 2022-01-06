@@ -65,7 +65,7 @@ describe('Slack Cloud Functions', () => {
 		it('should return slack response object', async () => {
 			try {
 				let res = await testSlackHook(myFunctions, 'create')
-				console.warn('/near create result', res)
+				console.warn('/near create', res)
 
 			}catch (e) {
 				return Promise.reject(e)
@@ -302,10 +302,11 @@ describe('Slack Cloud Functions', () => {
 // 	});
 // }
 
-function testSlackHook(myFunctions, params) {
+function testSlackHook(myFunctions, params, request = {}) {
 	return new Promise((resolve, reject) => {
 		try {
 			const req = {
+				...request,
 				body: {
 					...slackHookData,
 					text: params
