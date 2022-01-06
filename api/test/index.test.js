@@ -66,7 +66,7 @@ describe('Slack Cloud Functions', () => {
 			try {
 				let res = await testSlackHook(myFunctions, 'create')
 				console.warn('/near create', res)
-
+				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 			}catch (e) {
 				return Promise.reject(e)
 			}
