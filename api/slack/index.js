@@ -148,7 +148,7 @@ module.exports = function (db, functions) {
 			const amount 		 = utils.format.parseNearAmount(commands[3]);
 
 			const senderIdNet = senderId.split('.').pop();
-			const receiverIdNet = senderId.split('.').pop();
+			// const receiverIdNet = senderId.split('.').pop();
 
 			// Error checking but not implemented yet, there is a corner case with dev accounts where they don't have a .testnet at the end
 			// if ( senderIdNet !== 'testnet' && senderIdNet !== 'near' ) {
@@ -159,9 +159,9 @@ module.exports = function (db, functions) {
 			// }
 
 			const config = { ...getConfig(senderIdNet), keyStore: new keyStores.InMemoryKeyStore()};
-			const near = await connect(config);
-			const account = await near.account(senderId);
-			// const wallet = new WalletConnection(nearConnection)
+			const nearConnection = await connect(config);
+			const account = await nearConnection.account(senderId);
+			
 			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
 			let key = (await account.getAccessKeys())
 				.filter(key => key.access_key.permission === 'FullAccess')[0];
@@ -178,15 +178,15 @@ module.exports = function (db, functions) {
 			const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256));
 			const transaction = createTransaction(senderId, key, receiverId, 7560000005, [action], blockHash);
 
-			const transactionSerialized = serialize(SCHEMA, transaction);
-			const serchParams = {
-				transactions: Buffer.from(transactionSerialized).toString('base64'),
-				meta: 'my_meta_data',
-				callbackURL: 'maix.xyz',
-			}
-
-			const url = `https://wallet.testnet.near.org/sign?transactions=${serchParams.transactions}&meta=${serchParams.meta}&callbackURL=${serchParams.callbackURL}`
-			return `To sign send transaction go to ${url}`;
+			// const transactionSerialized = serialize(SCHEMA, transaction);
+			// const serchParams = {
+			// 	transactions: Buffer.from(transactionSerialized).toString('base64'),
+			// 	meta: 'my_meta_data',
+			// 	callbackURL: 'maix.xyz',
+			// };
+			const url = await near.generateSignTransactionURL(config.networkId, transaction);
+			// console.log("From here url: ", url);
+			return `To sign transaction go to` + url;
 
 		} catch (e) {
 			console.log('near-cli send err: ', e)

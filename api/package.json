@@ -8,7 +8,9 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "test": "cross-env HIDE_LOGS=true mocha --timeout 10000",
-    "testdev": "mocha --timeout 10000"
+    "testdev": "mocha --timeout 10000",
+		"test:contract" : "npx mocha --grep contract",
+		"test:contract:watch" : "npx mocha --grep contract --watch"
   },
   "engines": {
     "node": "16",

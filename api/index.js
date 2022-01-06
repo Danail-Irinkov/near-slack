@@ -138,6 +138,7 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 exports.nearSignTransactionCallBack = functions.https.onRequest(async (req, res) => {
 
 	try {
+		fl.log("req.query:", req.params);
 		fl.log("req.query:", req.query);
 		fl.log("req.body:", req.body);
 	} catch (e) {

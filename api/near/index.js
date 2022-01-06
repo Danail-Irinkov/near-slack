@@ -133,6 +133,27 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 		return Promise.reject(e)
 	}
 }
+async function generateSignTransactionURL(network, transaction) {
+	try {
+		const walletUrl = config(network).walletUrl;
+		const responeUrl = new URL('sign', walletUrl);
+
+		// the key names must not be changed because this is what wallet is expecting
+		const searchParams = {
+			transactions: Buffer.from(transaction.encode()).toString('base64'),
+			meta:	 'some_meta_data',
+			callbackUrl: 'https://us-central1-near-api-1d073.cloudfunctions.net/nearSignTransactionCallBack',
+		};
+
+		Object.entries(searchParams).forEach(([key, value]) => {
+			responeUrl.searchParams.set(key, value);
+		});
+			
+		return responeUrl.href; 
+	} catch (e) {
+		return Promise.reject(e)
+	} 
+}
 function getNetworkFromAccount(near_account) {
 	return near_account.split('.').pop()
 }
@@ -387,6 +408,7 @@ module.exports = {
 	getUserContractFCPrivateKey,
 	generateKeyStore,
 	generateWalletLoginURL,
+	generateSignTransactionURL,
 	getNetworkFromAccount,
 	getConnectOptions,
 	keys,
