@@ -68,7 +68,7 @@ export default {
 					slackData.text = "view devtest.testnet whoSaidHi";
 					break;
 				case "send":
-					slackData.text = "send devtest.testnet danail.testnet 23";
+					slackData.text = "send maix.testnet maix2.testnet 1";
 					break;
 				case "call":
 					slackData.text = 'call devtest.testnet sayHi {"bbb":23,"aaa":"asd"} 22.1';
