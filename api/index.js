@@ -165,34 +165,10 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 
 		// fl.log('payload.token', payload.token);
 
-		let response = "Hello from Slack App.\nTry a different command or /near help"
+		let response = `Hello from NEAR-Slack.\nI don't know '${commands[0]}', try /near help`
 		switch (commands[0]) {
 			case 'create':
-				response = {
-					text: 'The best and ONLY secure method to create a NEAR account is on our official website',
-					response_type: 'ephemeral',
-					attachments: [
-						{
-							fallback: 'Choose to create \'Live\' or \'Testnet\' Wallet',
-							color: "#4fcae0",
-							attachment_type: "default",
-							actions: [
-								{
-									type: "button",
-									style: "primary",
-									text: "NEAR Wallet",
-									url: 'https://wallet.near.org/create'
-								},
-								{
-									type: "button",
-									style: "primary",
-									text: "Testnet Wallet",
-									url: 'https://wallet.testnet.near.org/create'
-								}
-							]
-						}
-					]
-				}
+					response = await slack.create(payload, commands)
 				break
 			case 'login':
 				if (commands[1] && !validateNEARAccount(commands[1])) {
@@ -334,6 +310,12 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			case 'help':
 				console.log('before slack.help')
 				response = await slack.help(commands)
+				break
+
+			case 'delete':
+				let delete_res = await slack.getDeletionResponse(payload, commands)
+				if (delete_res)
+					response = delete_res
 				break
 			default:
 				// fl.log('No such command.');

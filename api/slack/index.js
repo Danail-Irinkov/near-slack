@@ -60,6 +60,39 @@ module.exports = function (db, functions) {
 // 	if (!bool) return throw err_msg
 // }
 
+	async function create (payload, commands) {
+		try {
+			return {
+				text: 'The best and ONLY secure method to create a NEAR account is on our official website',
+				response_type: 'ephemeral',
+				attachments: [
+					{
+						fallback: 'Choose to create \'Live\' or \'Testnet\' Wallet',
+						color: "#4fcae0",
+						attachment_type: "default",
+						actions: [
+							{
+								type: "button",
+								style: "primary",
+								text: "NEAR Wallet",
+								url: 'https://wallet.near.org/create'
+							},
+							{
+								type: "button",
+								style: "primary",
+								text: "Testnet Wallet",
+								url: 'https://wallet.testnet.near.org/create'
+							}
+						]
+					}
+				]
+			}
+		} catch (e) {
+			console.log('near-cli keys err: ', e)
+			return Promise.reject(e)
+		}
+	}
+
 	async function login(payload, commands) {
 		try {
 			// console.log('login payload', payload)
@@ -161,7 +194,7 @@ module.exports = function (db, functions) {
 			const config = { ...getConfig(senderIdNet), keyStore: new keyStores.InMemoryKeyStore()};
 			const nearConnection = await connect(config);
 			const account = await nearConnection.account(senderId);
-			
+
 			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
 			let key = (await account.getAccessKeys())
 				.filter(key => key.access_key.permission === 'FullAccess')[0];
@@ -394,6 +427,10 @@ module.exports = function (db, functions) {
 									value: 'help logout'
 								},
 								{
+									text: 'Contract',
+									value: 'help contract'
+								},
+								{
 									text: 'Send',
 									value: 'help send'
 								},
@@ -410,8 +447,16 @@ module.exports = function (db, functions) {
 									value: 'help account'
 								},
 								{
+									text: 'Balance',
+									value: 'help balance'
+								},
+								{
 									text: 'Keys',
 									value: 'help keys'
+								},
+								{
+									text: 'Delete Personal Data',
+									value: 'help delete personal data'
 								},
 							]
 						},
@@ -423,6 +468,26 @@ module.exports = function (db, functions) {
 			return help
 
 		switch (commands[1]) {
+			case 'create':
+				help.text = 'Get a New NEAR wallet\n' +
+					'/near create\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'create_from_help',
+					fallback: '/near create',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Connect NEAR Wallet',
+							name: 'create',
+							value: 'create'
+						}
+					]
+				})
+				break
 			case 'login':
 				help.text = 'Connect your NEAR wallet\n' +
 					'/near login {?account}\n' +
@@ -460,6 +525,27 @@ module.exports = function (db, functions) {
 							text: 'Disconnect NEAR Wallet',
 							name: 'logout',
 							value: 'logout'
+						}
+					]
+				})
+				break
+			case 'contract':
+				help.text = 'Checks available methods on a NEAR contract\n' +
+					'/near contract {?account}\n' +
+					'Note: Your logged in account will be shown, if no account is provided\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'contract_from_help',
+					fallback: '/near contract',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Current Contract',
+							name: 'contract',
+							value: 'contract'
 						}
 					]
 				})
@@ -505,6 +591,27 @@ module.exports = function (db, functions) {
 					]
 				})
 				break
+			case 'balance':
+				help.text = 'Displays the token balance of a NEAR account\n' +
+					'/near balance {?account}\n' +
+					'Note: Your logged in account will be shown, if no account is provided\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'balance_from_help',
+					fallback: '/near balance',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Current Account',
+							name: 'balance',
+							value: 'balance'
+						}
+					]
+				})
+				break
 			case 'keys':
 				help.text = 'Displays the Keys Information of a NEAR account\n' +
 					'/near keys {?account}\n' +
@@ -533,6 +640,65 @@ module.exports = function (db, functions) {
 
 		return help
 	}
+
+	async function getDeletionResponse (payload, commands) {
+		try {
+			let response
+			if (commands[1] === 'personal' && commands[2] === 'data' && !commands[3])
+				response = {
+					text: 'WARNING! If you continue you will lose your NEAR-Slack configuration',
+					response_type: 'ephemeral',
+					attachments: [
+						{
+							fallback: 'Delete my configuration',
+							color: "#4fcae0",
+							attachment_type: "default",
+							actions: [
+								{
+									type: "button",
+									style: "danger",
+									text: "Delete My Data",
+									value: 'delete personal data check'
+								}
+							]
+						}
+					]
+				}
+			else if (commands[1] === 'personal' && commands[2] === 'data' && commands[3] === 'check')
+				response = {
+					text: 'LAST WARNING! Are you Sure?',
+					response_type: 'ephemeral',
+					attachments: [
+						{
+							fallback: 'Your Confirmation!',
+							color: "#4fcae0",
+							attachment_type: "default",
+							actions: [
+								{
+									type: "button",
+									style: "danger",
+									text: "Yes, Delete!",
+									value: 'delete personal data force'
+								}
+							]
+						}
+					]
+				}
+			else if (commands[1] === 'personal' && commands[2] === 'data' && commands[3] === 'force') {
+				// DELETING USER DATA
+				await db.collection('users').doc(createUserDocId(payload.user_name)).delete()
+				response = {
+					text: 'Sorry to see you go...',
+					response_type: 'ephemeral'
+				}
+			}
+			return response
+		} catch (e) {
+			console.log('near-cli keys err: ', e)
+			return Promise.reject(e)
+		}
+	}
+
 	async function hello () {
 		return "Hello from near-cli";
 	}
@@ -561,6 +727,7 @@ module.exports = function (db, functions) {
 	global.stringifyResponse = stringifyResponse
 	return {
 		installer,
+		create,
 		login,
 		send,
 		view,
@@ -570,6 +737,7 @@ module.exports = function (db, functions) {
 		contract,
 		keys,
 		help,
+		getDeletionResponse,
 		createUserDocId,
 		hello,
 		stringifyResponse

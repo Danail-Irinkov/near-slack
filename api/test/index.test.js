@@ -95,7 +95,31 @@ describe('Slack Cloud Functions', () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data')
 				console.warn('/near delete personal data', res)
-				// assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+				assert.isTrue(!!(
+					res.text
+					&& res.text.indexOf('WARNING!') !== -1
+					&& res.attachments && res.attachments[0]
+					&& res.attachments[0].actions
+					&& res.attachments[0].actions.length
+				))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+	describe('/near delete personal data check', () => {
+		it('should return slack response object', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data check')
+				console.log('/near delete personal data', res)
+
+				assert.isTrue(!!(
+					res.text
+					&& res.text.indexOf('LAST WARNING') !== -1
+					&& res.attachments && res.attachments[0]
+					&& res.attachments[0].actions
+					&& res.attachments[0].actions.length
+				))
 			}catch (e) {
 				return Promise.reject(e)
 			}
