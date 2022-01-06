@@ -6,6 +6,7 @@ const functions = require('firebase-functions')
 const fs = require('fs')
 const axios = require('axios')
 const {PubSub} = require('@google-cloud/pubsub');
+const near = require('../near')
 const pubsub = new PubSub();
 
 // const pubsubs = require('./pubsubs.js') // TODO: extract pubsubs into this file
@@ -45,6 +46,13 @@ global.db = db
 	 //Logging shortcut
 	global.fl = functions.logger
 // }
+
+
+exports.testDB = functions.https.onRequest(async (req, res) => {
+	let test_res = await exampleDBReadWriteDelete()
+	res.send(test_res);
+});
+
 
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
 	console.log('loginPubSub Start')
@@ -98,11 +106,6 @@ exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').
 		return Promise.reject(e)
 	}
 })
-
-exports.helloWorld = functions.https.onRequest(async (req, res) => {
-	await exampleDBReadWrite()
-	res.send("Hello from Firebase!");
-});
 
 exports.installSlackNear = functions.https.onRequest(async (req, res) => {
 	const url = await slack.installer.generateInstallUrl({
@@ -164,6 +167,33 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 
 		let response = "Hello from Slack App.\nTry a different command or /near help"
 		switch (commands[0]) {
+			case 'create':
+				response = {
+					text: 'The best and ONLY secure method to create a NEAR account is on our official website',
+					response_type: 'ephemeral',
+					attachments: [
+						{
+							fallback: 'Choose to create \'Live\' or \'Testnet\' Wallet',
+							color: "#4fcae0",
+							attachment_type: "default",
+							actions: [
+								{
+									type: "button",
+									style: "primary",
+									text: "NEAR Wallet",
+									url: 'https://wallet.near.org/create'
+								},
+								{
+									type: "button",
+									style: "primary",
+									text: "Testnet Wallet",
+									url: 'https://wallet.testnet.near.org/create'
+								}
+							]
+						}
+					]
+				}
+				break
 			case 'login':
 				if (commands[1] && !validateNEARAccount(commands[1])) {
 					response = 'Invalid Near Account'
@@ -422,19 +452,26 @@ exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
 	}
 });
 
-async function exampleDBReadWrite() {
-	const docRef = db.collection('users').doc('alovelace');
-	let result = await docRef.set({
-		first: 'Ada',
-		last: 'Lovelace',
-		born: 1815
-	});
-	console.log("Result: ", result);
+async function exampleDBReadWriteDelete() {
+	try {
+		const docRef = db.collection('users').doc('alovelace');
+		let result = await docRef.set({
+			first: 'Ada',
+			last: 'Lovelace',
+			born: 1815
+		});
+		console.log("Result: ", result);
 
-	const snapshot = await db.collection('users').get();
-	snapshot.forEach((doc) => {
-		console.log("User: ", doc.id, '=>', doc.data());
-	});
+		const snapshot = await db.collection('users').get();
+		snapshot.forEach((doc) => {
+			console.log("User: ", doc.id, '=>', doc.data());
+		});
+
+		await db.collection('installations').delete(installQuery.enterpriseId)
+		return 'Database is working'
+	} catch (e) {
+		return 'Database ERROR' + JSON.stringify(e, null, 2)
+	}
 
 }
 
