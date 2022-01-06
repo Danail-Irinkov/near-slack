@@ -65,7 +65,7 @@ describe('Slack Cloud Functions', () => {
 		it('should return slack response object', async () => {
 			try {
 				let res = await testSlackHook(myFunctions, 'create')
-				console.warn('/near create', res)
+				console.log('/near create', res)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 			}catch (e) {
 				return Promise.reject(e)
@@ -76,8 +76,7 @@ describe('Slack Cloud Functions', () => {
 		it('should return slack response object', async () => {
 			try {
 				let res = await testSlackHook(myFunctions, 'call devtest.testnet sayHi', {add_payload_and_commands: true})
-				console.warn('/near call devtest.testnet sayHi', res)
-				console.log('myFunctions send', res)
+				console.log('/near call devtest.testnet sayHi', res)
 				// extract payload and commands
 				payload = {...res.payload}
 				commands = [...res.commands]
@@ -143,153 +142,49 @@ describe('Slack Cloud Functions', () => {
 	// })
 
 	describe('/near view devtest.testnet whoSaidHi', () => {
-		it('should return slack response object', (done) => {
-			// A fake request object, with req.query.text set to 'input'
-			const req = {
-				body: {
-					...slackHookData,
-					text: 'view devtest.testnet whoSaidHi'
-				},
-			};
-			// A fake response object, with a stubbed redirect function which does some assertions
-			const res = {
-				set: (a, b) => {},
-				end: () => {},
-				send: (res) => {
-					try {
-						// Assert code
-						console.log('Response slackHook', res)
-						assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
-						done();
-					} catch (e) {
-						done(e)
-					}
-				}
-			};
-
-			myFunctions.slackHook(req, res);
+		it('should return slack response object', async () => {
+			try {
+					let res = await testSlackHook(myFunctions, 'view devtest.testnet whoSaidHi')
+					console.log('Response /near view devtest.testnet whoSaidHi', res)
+					assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
+			} catch (e) {
+				return Promise.reject(e)
+			}
 		});
 	})
 
 	describe('/near balance', () => {
-		it('returns slack response object', (done) => {
-			// A fake request object, with req.query.text set to 'input'
-			const req = {
-				body: {
-					...slackHookData,
-					text: 'balance'
-				},
-			};
-			// A fake response object, with a stubbed redirect function which does some assertions
-			const res = {
-				set: (a, b) => {},
-				end: () => {},
-				send: (res) => {
-					try {
-						// Assert code
-						console.log('balance slackHook', res)
-						// assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
-						done();
-					} catch (e) {
-						done(e)
-					}
-				}
-			};
-
-			myFunctions.slackHook(req, res);
+		it('returns slack response object', async () => {
+			try {
+				let res = await testSlackHook(myFunctions, 'balance')
+				console.log('Response /near balance', res)
+				assert.isTrue(!!res.text)
+			} catch (e) {
+				return Promise.reject(e)
+			}
 		});
 	})
 
 	describe('/near contract devtest.testnet', () => {
-		it('returns slack response object', (done) => {
-			// A fake request object, with req.query.text set to 'input'
-			const req = {
-				body: {
-					...slackHookData,
-					text: 'contract devtest.testnet'
-				},
-			};
-			// A fake response object, with a stubbed redirect function which does some assertions
-			const res = {
-				set: (a, b) => {},
-				end: () => {},
-				send: (res) => {
-					try {
-						// Assert code
-						console.log('contract slackHook', res)
-						assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
-						done();
-					} catch (e) {
-						done(e)
-					}
-				}
-			};
-
-			myFunctions.slackHook(req, res);
+		it('returns slack response object', async () => {
+			try {
+				let res = await testSlackHook(myFunctions, 'contract devtest.testnet')
+				console.log('Response /near contract devtest.testnet', res)
+				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+			} catch (e) {
+				return Promise.reject(e)
+			}
 		});
 	})
 
 	describe('/near contract devtest_fake.testnet', () => {
-		it('returns slack response object', (done) => {
+		it('returns slack response object', async () => {
 			try {
-				// A fake request object, with req.query.text set to 'input'
-				const req = {
-					body: {
-						...slackHookData,
-						text: 'contract devtest_fake.testnet'
-					},
-				};
-				// A fake response object, with a stubbed redirect function which does some assertions
-				const res = {
-					set: (a, b) => {},
-					end: () => {},
-					send: (res) => {
-						// Assert code
-						try {
-							console.log('contract fail slackHook', res)
-							assert.isTrue(!!(res.text && res.text.indexOf('Account Does Not Exist') !== -1))
-							done();
-						} catch (e) {
-							done(e)
-					}
-					}
-				};
-
-				myFunctions.slackHook(req, res);
+				let res = await testSlackHook(myFunctions, 'contract devtest_fake.testnet')
+				console.log('Response /near contract devtest_fake.testnet', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('Account Does Not Exist') !== -1))
 			} catch (e) {
-				done(e)
-			}
-		});
-	})
-	describe('/near create', () => {
-		it('returns slack response object', (done) => {
-			try {
-				// A fake request object, with req.query.text set to 'input'
-				const req = {
-					body: {
-						...slackHookData,
-						text: 'create'
-					},
-				};
-				// A fake response object, with a stubbed redirect function which does some assertions
-				const res = {
-					set: (a, b) => {},
-					end: () => {},
-					send: (res) => {
-						// Assert code
-						try {
-							console.warn('create slackHook', res)
-							assert.isTrue(!!(res.text))
-							done();
-						} catch (e) {
-							done(e)
-					}
-					}
-				};
-
-				myFunctions.slackHook(req, res);
-			} catch (e) {
-				done(e)
+				return Promise.reject(e)
 			}
 		});
 	})
