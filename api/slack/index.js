@@ -1,17 +1,11 @@
 const { InstallProvider } = require('@slack/oauth');
-const { response } = require('express');
 const { createHmac } = require('crypto');
 const tsscmp = require('tsscmp');
-
-const { hash } = require('firebase-admin/auth')
-// const { firebaseConfig } = require('firebase-functions/v1');
 const { getAuth } = require('firebase-admin/auth');
 const { utils, WalletConnection, keyStores, connect } = require('near-api-js');
 const { createTransaction, transfer, SCHEMA } = require('near-api-js/lib/transaction');
 const near = require('../near');
 const getConfig = require('../near/config');
-const { serialize } = require('borsh');
-// const near = {}
 
 module.exports = function (db, functions) {
 	// initialize the installProvider

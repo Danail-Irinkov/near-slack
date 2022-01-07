@@ -622,7 +622,7 @@ function IsJsonString(str) {
 }
 async function getCurrentNearAccountFromSlackUsername(user_name) {
 	try {
-		console.time('account db.collection(users)')
+		console.time('getCurrentNearAccountFromSlackUsername db.collection(users)')
 		let user = (await db.collection('users').doc(slack.createUserDocId(user_name)).get()).data()
 		if(!user.near_account) {
 			let response = {
@@ -647,7 +647,7 @@ async function getCurrentNearAccountFromSlackUsername(user_name) {
 			}
 			return Promise.reject(response)
 		}
-		console.timeEnd('account db.collection(users)')
+		console.timeEnd('getCurrentNearAccountFromSlackUsername db.collection(users)')
 		return user.near_account
 	} catch (e) {
 		return Promise.reject(e)
