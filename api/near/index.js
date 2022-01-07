@@ -148,11 +148,11 @@ async function generateSignTransactionURL(network, transaction) {
 		Object.entries(searchParams).forEach(([key, value]) => {
 			responeUrl.searchParams.set(key, value);
 		});
-			
-		return responeUrl.href; 
+
+		return responeUrl.href;
 	} catch (e) {
 		return Promise.reject(e)
-	} 
+	}
 }
 function getNetworkFromAccount(near_account) {
 	return near_account.split('.').pop()
@@ -180,7 +180,7 @@ async function account(options) {
 	if (state && state.amount) {
 		state['formattedAmount'] = utils.format.formatNearAmount(state.amount);
 	}
-	console.log(`Account ${options.accountId}`, state);
+	// fl.log(`Account ${options.accountId}`, state);
 	return state
 };
 async function balance(options) {

@@ -265,8 +265,35 @@ describe('Slack Cloud Functions', () => {
 function testHTTPFunction(myFunctions, function_name, params, manual_request = {}, manual_response = {}) {
 	return new Promise((resolve, reject) => {
 		try {
+			let current_timestamp = String(Math.round(Date.now()/1000))
 			const req = {
-				body: {
+				headers: { // Sample Slack request header
+					"x-cloud-trace-context":"84aa81bd3c5a4c67e70cbfa63349c450/8351297077662228663;o=1",
+					"function-exeion-id":"b6eax4isrnrv",
+					"x-appengine-user-ip":"52.90.135.175",
+					"transfer-encoding":"chunked",
+					"accept-encoding":"gzip,deflate",
+					"user-agent":"Slackbot 1.0 (+https://api.slack.com/robots)",
+					"traceparent":"00-84aa81bd3c5a4c67e70cbfa63349c450-73e5c471efd0a0b7-01",
+					"x-appengine-timeout-ms":"599999",
+					"x-slack-signature":"v0=42c8e35824ac2b9bf66146a326aec2b60d38da1e02caf78371808c73b6242482",
+					"x-appengine-country":"US",
+					"host":"us-central1-near-api-1d073.cloudfunctions.net",
+					"x-appengine-city":"ashburn",
+					"x-appengine-https":"on",
+					"x-slack-request-timestamp": current_timestamp,
+					"x-forwarded-proto":"https",
+					"accept":"application/json,*/*",
+					"x-appengine-region":"va",
+					"x-appengine-citylatlong":"39.043757,-77.487442",
+					"forwarded":"for=\"52.90.135.175\";proto=https",
+					"x-forwarded-for":"52.90.135.175",
+					"content-type":"application/x-www-form-urlencoded",
+					"connection":"close",
+					"x-appengine-request-log-id":"61d877d100ff0c3fbcf78edf180001737e6365346465323934363565353865643230702d7470000132336232303236653333626332353133356332326561306666653937373938363a31373300010114",
+					"x-appengine-defacutult-version-hostname":"ce4de29465e58ed20p-tp.appspot.com"
+				},
+				body: {// Sample Slack request body
 					...slackHookData,
 					text: params
 				},
@@ -284,6 +311,7 @@ function testHTTPFunction(myFunctions, function_name, params, manual_request = {
 
 			myFunctions[function_name](req, res);
 		} catch (e) {
+			console.warn('testHTTPFunction err: ', e)
 			reject(e)
 		}
 	});

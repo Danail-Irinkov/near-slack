@@ -9,8 +9,8 @@
     "logs": "firebase functions:log",
     "test": "cross-env HIDE_LOGS=true mocha --timeout 10000",
     "testdev": "mocha --timeout 10000",
-		"test:contract" : "npx mocha --grep contract",
-		"test:contract:watch" : "npx mocha --grep contract --watch"
+    "test:contract": "npx mocha --grep contract",
+    "test:contract:watch": "npx mocha --grep contract --watch"
   },
   "engines": {
     "node": "16",
@@ -32,7 +32,8 @@
     "near-api-js": "^0.44.2",
     "near-cli": "^3.1.0",
     "near-contract-parser": "^0.1.3",
-    "open": "^8.4.0"
+    "open": "^8.4.0",
+    "tsscmp": "^1.0.6"
   },
   "devDependencies": {
     "chai": "^4.3.4",

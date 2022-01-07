@@ -1,5 +1,9 @@
 const { InstallProvider } = require('@slack/oauth');
 const { response } = require('express');
+const { createHmac } = require('crypto');
+const tsscmp = require('tsscmp');
+
+const { hash } = require('firebase-admin/auth')
 // const { firebaseConfig } = require('firebase-functions/v1');
 const { getAuth } = require('firebase-admin/auth');
 const { utils, WalletConnection, keyStores, connect } = require('near-api-js');
@@ -60,6 +64,53 @@ module.exports = function (db, functions) {
 // 	if (!bool) return throw err_msg
 // }
 
+	function validateRequest (req) {
+		try {
+			// console.warn('REQUEST VALIDATED validateRequest Start')
+			console.time('validateRequest')
+			// fl.log('Headers', req.headers)
+			let bool = false
+			let timestamp =  Number(req.headers['x-slack-request-timestamp'])
+			let slack_signature = req.headers['x-slack-signature']
+			if (Number.isNaN(timestamp)) {
+				console.warn('x-slack-request-timestamp is not a Number: ', timestamp)
+				throw new Error(
+					`Header x-slack-request-timestamp did not have the expected type (${typeof timestamp})`,
+				);
+			}
+			// console.warn('time compare', Math.round(Date.now()/1000), timestamp)
+			if (Math.abs(Math.round(Date.now()/1000) - timestamp) < 60 * 5) {
+				const [signatureVersion, signatureHash] = slack_signature.split('=');
+				// Only handle known versions
+				if (signatureVersion !== 'v0') {
+					console.warn('Unknown signature version: ', signatureVersion)
+					throw new Error(`Unknown signature version`);
+				}
+
+				// Compute our own signature hash
+				const hmac = createHmac('sha256', functions.config().slack.signing_secret);
+				hmac.update(`${signatureVersion}:${timestamp}:${req.rawBody.toString()}`);
+				let my_signature = hmac.digest('hex');
+				if (my_signature.indexOf('v0=') !== 0)
+					my_signature = 'v0=' + my_signature
+
+				if (tsscmp(slack_signature, my_signature)) {
+					bool = true
+				} else {
+					console.warn('tsscmp(slack_signature, my_signature)', tsscmp(slack_signature, my_signature))
+					console.warn('slack_signature: ', slack_signature)
+					console.warn('my_signature: ', my_signature)
+				}
+			}
+			// console.warn('REQUEST VALIDATED', bool)
+			console.timeEnd('validateRequest')
+			return bool
+		} catch (e) {
+			console.log('slack-cli validateRequest err: ', e)
+			console.timeEnd('validateRequest')
+			return Promise.reject(e)
+		}
+	}
 	async function create (payload, commands) {
 		try {
 			return {
@@ -88,7 +139,7 @@ module.exports = function (db, functions) {
 				]
 			}
 		} catch (e) {
-			console.log('near-cli keys err: ', e)
+			console.log('slack-cli keys err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -160,7 +211,7 @@ module.exports = function (db, functions) {
 			}
 
 		} catch (e) {
-			fl.log('near-cli login err: ', e)
+			fl.log('slack-cli login err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -222,7 +273,7 @@ module.exports = function (db, functions) {
 			return `To sign transaction go to` + url;
 
 		} catch (e) {
-			console.log('near-cli send err: ', e)
+			console.log('slack-cli send err: ', e)
 			return Promise.reject(e)
 		}
 
@@ -245,10 +296,10 @@ module.exports = function (db, functions) {
 			console.log('SLACK view result', result)
 			return commands[2]+'(): ' + stringifyResponse(result)
 		} catch (e) {
-			fl.log('near-cli view err1: ', e)
-			console.log('near-cli view err1: ', e.method_name)
-			console.log('near-cli view err2: ', e.error)
-			console.log('near-cli view err3: ', e.block_hash)
+			fl.log('slack-cli view err1: ', e)
+			console.log('slack-cli view err1: ', e.method_name)
+			console.log('slack-cli view err2: ', e.error)
+			console.log('slack-cli view err3: ', e.block_hash)
 			// if (e.error.method_name && e.error.method_name === 'signer_account_id')
 				return Promise.reject('You are most probably calling a Contract Change method with view, try /near call')
 			// else
@@ -293,7 +344,7 @@ module.exports = function (db, functions) {
 				text: commands[2]+'(): ' + stringifyResponse(result)
 			}
 		} catch (e) {
-			fl.log('near-cli call err: ', e)
+			fl.log('slack-cli call err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -309,7 +360,7 @@ module.exports = function (db, functions) {
 
 			return commands[1]+': ' + stringifyResponse(result)
 		} catch (e) {
-			console.log('near-cli account err: ', e)
+			console.log('slack-cli account err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -325,7 +376,7 @@ module.exports = function (db, functions) {
 
 			return commands[1]+': ' + stringifyResponse(result)
 		} catch (e) {
-			console.log('near-cli balance err: ', e)
+			console.log('slack-cli balance err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -389,7 +440,7 @@ module.exports = function (db, functions) {
 					text: `'${commands[1]}' doesn't have a contract deployed`,
 				}
 		} catch (e) {
-			console.log('near-cli contract err: ', e)
+			console.log('slack-cli contract err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -404,7 +455,7 @@ module.exports = function (db, functions) {
 
 			return commands[1]+' keys: ' + stringifyResponse(result)
 		} catch (e) {
-			console.log('near-cli keys err: ', e)
+			console.log('slack-cli keys err: ', e)
 			return Promise.reject(e)
 		}
 
@@ -734,7 +785,7 @@ module.exports = function (db, functions) {
 			}
 			return response
 		} catch (e) {
-			console.log('near-cli keys err: ', e)
+			console.log('slack-cli keys err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -767,6 +818,7 @@ module.exports = function (db, functions) {
 	global.stringifyResponse = stringifyResponse
 	return {
 		installer,
+		validateRequest,
 		create,
 		login,
 		send,

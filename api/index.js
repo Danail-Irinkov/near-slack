@@ -158,6 +158,10 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 	res.set('Access-Control-Allow-Headers', '*');
 
 	try {
+		if (!slack.validateRequest(req))
+			return res.send('Request Authentication Error')
+
+
 		let payload = parseSlackPayload(req)
 		fl.log('slackHook payload', payload);
 		let commands = await parseSlackCommands(payload)
@@ -548,17 +552,17 @@ async function getContractByAccountAndPublicKey(slack_username, near_account, pu
 function parseSlackPayload(req) {
 	let payload = {...req.body};
 	let payload2 = {}
-	console.log('parseSlackPayload payload', payload);
+	// fl.log('parseSlackPayload payload', payload);
 	// console.log('slackHook payload.payload', payload.payload);
 	if(payload.payload) {
 		payload2 = JSON.parse(payload.payload);
-		console.log('slackHook payload.callback_id', payload2.callback_id);
+		// fl.log('slackHook payload.callback_id', payload2.callback_id);
 
 		if(payload2.user) { //In case of coming from Interactive buttons username is located in a different place ...
 			payload = {...payload2}
-			fl.log('slackHook 2payload: ', payload);
+			// fl.log('slackHook 2payload: ', payload);
 			payload.user_name = payload2.user.name;
-			console.log('slackHook payload.user_name', payload.user_name);
+			// fl.log('slackHook payload.user_name', payload.user_name);
 		}
 	}
 	return payload
@@ -580,7 +584,7 @@ async function parseSlackCommands(payload) {
 	// Handling Payload from Interactive Help Menu - END
 	commands = commands.replace('  ', ' ')
 	let commands_array = commands.split(' ')
-	fl.log('commands_array1', commands_array)
+	// fl.log('commands_array1', commands_array)
 
 	if (commands_array[0] === 'call' && commands_array[3]){
 		// Parsing JSON arguments Input
@@ -596,16 +600,16 @@ async function parseSlackCommands(payload) {
 		} catch (e) {
 			return Promise.reject('Arguments are not a valid JSON')
 		}
-		fl.log('commands.replace1', commands)
-		fl.log('commands.substring', commands.substring(first_json_index, last_json_index+1))
+		// fl.log('commands.replace1', commands)
+		// fl.log('commands.substring', commands.substring(first_json_index, last_json_index+1))
 		commands = commands.replace(commands.substring(first_json_index, last_json_index+1), '')
-		fl.log('commands.replaced2', commands)
+		// fl.log('commands.replaced2', commands)
 		commands_array = commands.split(' ')
-		fl.log('commands.split2', commands_array)
+		// fl.log('commands.split2', commands_array)
 		commands_array.splice(3,0, json_str)
-		fl.log('commands.spliced', commands_array)
+		// fl.log('commands.spliced', commands_array)
 	}
-	fl.log('commands_array3', commands_array)
+	// fl.log('commands_array final', commands_array)
 	return commands_array
 }
 function IsJsonString(str) {
