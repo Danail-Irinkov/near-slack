@@ -339,44 +339,55 @@ module.exports = function (db, functions) {
 				})
 			console.log('contract before viewContract')
 			let contract = await near.viewContract(options)
-			console.log('contract', contract)
-			let methods = contract.methodNames
-			let probableInterfaces = contract.probableInterfaces
-			console.log('contract methods', methods)
-
-			let text = `Contract methods for ${commands[1]}:\n`
-			if (probableInterfaces && probableInterfaces.length)
-				text = `Probable Interfaces: ${JSON.stringify(probableInterfaces, null, 2)}`
-			let select_options = []
-
-			for (let method of methods) {
-				select_options.push({
-					text: method,
-					value: `call ${commands[1]} ${method}`
+				.catch((e) => {
+					if(e.toString().indexOf('has never been observed on the node') !== -1) {
+						return null
+					} else
+						return Promise.reject(e)
 				})
-			}
+			if (contract && contract.methodNames) {
+				console.log('contract', contract)
+				let methods = contract.methodNames
+				let probableInterfaces = contract.probableInterfaces
+				console.log('contract methods', methods)
 
-			return {
-				text: text,
-				// "response_type": "ephemeral ",
-				attachments: [
-					{
-						text: 'Choose a method',
-						fallback: 'No command chosen',
-						color: '#4fcae0',
-						attachment_type: 'default',
-						callback_id: 'command_help',
-						actions: [
-							{
-								name: 'methods_list',
-								text: 'Pick a method...',
-								type: 'select',
-								options: select_options
-							},
-						]
-					}
-				]
-			}
+				let text = `Contract methods for ${commands[1]}:\n`
+				if (probableInterfaces && probableInterfaces.length)
+					text = `Probable Interfaces: ${JSON.stringify(probableInterfaces, null, 2)}`
+				let select_options = []
+
+				for (let method of methods) {
+					select_options.push({
+						text: method,
+						value: `call ${commands[1]} ${method}`
+					})
+				}
+
+				return {
+					text: text,
+					// "response_type": "ephemeral ",
+					attachments: [
+						{
+							text: 'Choose a method',
+							fallback: 'No command chosen',
+							color: '#4fcae0',
+							attachment_type: 'default',
+							callback_id: 'command_help',
+							actions: [
+								{
+									name: 'methods_list',
+									text: 'Pick a method...',
+									type: 'select',
+									options: select_options
+								},
+							]
+						}
+					]
+				}
+			} else
+				return {
+					text: `'${commands[1]}' doesn't have a contract deployed`,
+				}
 		} catch (e) {
 			console.log('near-cli contract err: ', e)
 			return Promise.reject(e)
@@ -402,7 +413,7 @@ module.exports = function (db, functions) {
 	async function help (commands) {
 		let help = {
 			text: 'Available commands:\n' +
-				'login, logout, send, view, call, account, keys\n' +
+				'login, contract, send, view, call, account, ...\n' +
 				'for more details use /near help {command}',
 			// "response_type": "ephemeral ",
 			attachments: [
@@ -418,6 +429,10 @@ module.exports = function (db, functions) {
 							text: 'Pick a command...',
 							type: 'select',
 							options: [
+								{
+									text: 'Create',
+									value: 'help create'
+								},
 								{
 									text: 'Login',
 									value: 'help login'
@@ -633,6 +648,27 @@ module.exports = function (db, functions) {
 						}
 					]
 				})
+			case 'delete':
+				help.text = 'This command is used to delete your personal Data and configuration for the NEAR-Slack Integration.\n' +
+					'/near delete personal data\n' +
+					'Note: This will Not affect your Data in the NEAR Network or Slack\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'delete_from_help',
+					// text: 'Shortcut',
+					fallback: '/near delete',
+					actions: [
+						{
+							type: 'button',
+							style: 'danger',
+							text: 'Delete Account',
+							name: 'delete',
+							value: 'delete personal data'
+						}
+					]
+				})
 				break
 			default:
 				help.text = 'We haven\'t added "' + commands[1] + '" command yet ;)'
@@ -652,12 +688,14 @@ module.exports = function (db, functions) {
 						{
 							fallback: 'Delete my configuration',
 							color: "#4fcae0",
+							callback_id: "delete_data1",
 							attachment_type: "default",
 							actions: [
 								{
 									type: "button",
 									style: "danger",
 									text: "Delete My Data",
+									name: 'delete_my_data',
 									value: 'delete personal data check'
 								}
 							]
@@ -672,12 +710,14 @@ module.exports = function (db, functions) {
 						{
 							fallback: 'Your Confirmation!',
 							color: "#4fcae0",
+							callback_id: "delete_data2",
 							attachment_type: "default",
 							actions: [
 								{
 									type: "button",
 									style: "danger",
 									text: "Yes, Delete!",
+									name: 'yes_delete_my_data',
 									value: 'delete personal data force'
 								}
 							]

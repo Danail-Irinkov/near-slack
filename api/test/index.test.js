@@ -91,7 +91,7 @@ describe('Slack Cloud Functions', () => {
 		})
 	})
 	describe('/near delete personal data', () => {
-		it('should return slack response object', async () => {
+		it('should return slack response object with buttons', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data')
 				console.warn('/near delete personal data', res)
@@ -108,7 +108,7 @@ describe('Slack Cloud Functions', () => {
 		})
 	})
 	describe('/near delete personal data check', () => {
-		it('should return slack response object', async () => {
+		it('should return slack response object with buttons', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data check')
 				console.log('/near delete personal data', res)
@@ -126,7 +126,7 @@ describe('Slack Cloud Functions', () => {
 		})
 	})
 	describe('/near call devtest.testnet sayHi', () => {
-		it('should return slack response object', async () => {
+		it('should return result from sayHi', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'call devtest.testnet sayHi', {add_payload_and_commands: true})
 				console.log('/near call devtest.testnet sayHi', res)
@@ -195,7 +195,7 @@ describe('Slack Cloud Functions', () => {
 	// })
 
 	describe('/near view devtest.testnet whoSaidHi', () => {
-		it('should return slack response object', async () => {
+		it('should return result from whoSaidHi', async () => {
 			try {
 					let res = await testHTTPFunction(myFunctions, 'slackHook', 'view devtest.testnet whoSaidHi')
 					console.log('Response /near view devtest.testnet whoSaidHi', res)
@@ -207,7 +207,7 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near balance', () => {
-		it('returns slack response object', async () => {
+		it('returns slack response object with amount', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'balance')
 				console.log('Response /near balance', res)
@@ -230,8 +230,20 @@ describe('Slack Cloud Functions', () => {
 		});
 	})
 
+	describe('/near contract dan2.testnet', () => {
+		it('returns `No Contract deployed`', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract dan2.testnet')
+				// console.warn('Response /near contract dan2.testnet', res)
+				assert.isTrue(!!(res.text && res.text.indexOf(`doesn't have a contract deployed`) !== -1))
+			} catch (e) {
+				return Promise.reject(e)
+			}
+		});
+	})
+
 	describe('/near contract devtest_fake.testnet', () => {
-		it('returns slack response object', async () => {
+		it('returns `Account Does Not Exist`', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract devtest_fake.testnet')
 				console.log('Response /near contract devtest_fake.testnet', res)

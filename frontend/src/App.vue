@@ -15,4 +15,10 @@
   color: #2c3e50;
   /*margin-top: 60px;*/
 }
+.max-w-fit {
+	max-width: fit-content;
+}
+.link {
+	@apply no-underline hover:underline cursor-pointer
+}
 </style>
