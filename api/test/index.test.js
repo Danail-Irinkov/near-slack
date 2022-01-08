@@ -253,6 +253,19 @@ describe('Slack Cloud Functions', () => {
 			}
 		});
 	})
+
+	describe('/near send maix.testnet maix2.testnet', () => {
+		it('returns some text and a link to sign the transaction', async () => {
+			try {
+				console.log("myFunctions", myFunctions);
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'send maix.testnet maix2.testnet 1')
+				console.log('Response /near send maix.testnet maix2.testnet', res)
+				assert.isTrue(!!(res.text))
+			} catch (e) {
+				return Promise.reject(e)
+			}
+		});
+	})
 })
 
 
