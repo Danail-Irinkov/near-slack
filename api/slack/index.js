@@ -2,10 +2,7 @@ const { InstallProvider } = require('@slack/oauth');
 const { createHmac } = require('crypto');
 const tsscmp = require('tsscmp');
 const { getAuth } = require('firebase-admin/auth');
-const { utils, WalletConnection, keyStores, connect } = require('near-api-js');
-const { createTransaction, transfer, SCHEMA } = require('near-api-js/lib/transaction');
 const near = require('../near');
-const getConfig = require('../near/config');
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -219,53 +216,52 @@ module.exports = function (db, functions) {
 	 * */
 	async function send(payload, commands) {
 		try {
-			// if (userIsLoggedInWithNear(user)) return 'Please login'
+			let response
 
-			const senderId   = commands[1];
-			const receiverId = commands[2];
-			const amount 		 = utils.format.parseNearAmount(commands[3]);
+			if (near.getNetworkFromAccount(commands[1]) !== near.getNetworkFromAccount(commands[2])) {
+				response = 'Mismatching sender/receiver Network'
+			} else {
+				let options = near.getConnectOptions(null,
+					near.getNetworkFromAccount(commands[1]),
+					{
+						accountId: commands[1],
+						receiverId: commands[2],
+						amount: commands[3]
+					})
 
-			const senderIdNet = senderId.split('.').pop();
-			// const receiverIdNet = senderId.split('.').pop();
+				const transaction = await near.generateTransaction(options)
 
-			// Error checking but not implemented yet, there is a corner case with dev accounts where they don't have a .testnet at the end
-			// if ( senderIdNet !== 'testnet' && senderIdNet !== 'near' ) {
-
-			// if (senderIdNet !== receiverIdNet) {
-			// 	payload.text = `Sender and receiver must be in the same NEAR network`
-			// 	return payload
-			// }
-
-			const config = { ...getConfig(senderIdNet), keyStore: new keyStores.InMemoryKeyStore()};
-			const nearConnection = await connect(config);
-			const account = await nearConnection.account(senderId);
-
-			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
-			let key = (await account.getAccessKeys())
-				.filter(key => key.access_key.permission === 'FullAccess')[0];
-
-			if (key === undefined)
-				return `${senderId} doens't have any full access keys. Cannot send near.`;
-
-			key = utils.key_pair.PublicKey.from(key.public_key);
-
-			const action = transfer(amount);
-
-			// It seems that nonce and block hash can be random values
-			const nonce = 7560000005;
-			const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256));
-			const transaction = createTransaction(senderId, key, receiverId, 7560000005, [action], blockHash);
-
-			// const transactionSerialized = serialize(SCHEMA, transaction);
-			// const serchParams = {
-			// 	transactions: Buffer.from(transactionSerialized).toString('base64'),
-			// 	meta: 'my_meta_data',
-			// 	callbackURL: 'maix.xyz',
-			// };
-			const url = await near.generateSignTransactionURL(config.networkId, transaction);
-			// console.log("From here url: ", url);
-			return `To sign transaction go to` + url;
-
+				let response_context = {
+					slack_username: payload.user_name,
+					channel_id: payload.channel_id,
+					team_domain: payload.team_domain,
+					response_url: payload.response_url,
+					text: payload.text,
+					receiverId: commands[2],
+					amount: commands[3],
+				}
+				const url = await near.generateSignTransactionURL(options, transaction, response_context)
+				response = {
+					text: 'Press the button to complete the NEAR transaction',
+					response_type: 'ephemeral',
+					attachments: [
+						{
+							fallback: 'Sign Transaction',
+							color: "#4fcae0",
+							attachment_type: "default",
+							actions: [
+								{
+									type: "button",
+									style: "primary",
+									text: "Sign Transaction",
+									url: url
+								}
+							]
+						}
+					]
+				};
+			}
+			return response
 		} catch (e) {
 			console.log('slack-cli send err: ', e)
 			return Promise.reject(e)
@@ -612,9 +608,9 @@ module.exports = function (db, functions) {
 				break
 			case 'send':
 				help.text = 'Transfer NEAR tokens to another account\n' +
-					'/near send {your account} {to account} {amount}\n' +
+					'/near send {to account} {amount}\n' +
 					'Amount format is in NEAR tokens, for ex. 12.025\n' +
-					'Note: You will need a full access key for the sending account (/near login)'
+					'Note: The transaction will be issued from your current logged in NEAR account'
 				break
 			case 'view':
 				help.text = 'Get result from a contract\'s View method\n' +

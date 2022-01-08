@@ -63,7 +63,7 @@ export default {
 			}
 
 			const sender_network_id = extractNetworkId(sender);
-			const receiver_network_id = extractNetworkId(receiver);  
+			const receiver_network_id = extractNetworkId(receiver);
 
 			if (!isValidNetworkId(sender_network_id)) {
 				console.error("isValidateInput(sender, receiver, amount): Invalid network id", sender_network_id);
@@ -73,7 +73,7 @@ export default {
 			if (!isValidNetworkId(receiver_network_id)) {
 				console.error("isValidNetworkId(sender, receiver, amount): Invalid network id", receiver_network_id);
 				bool = false;
-			}			
+			}
 
 			if (!sender_network_id) {
 				console.error("isValidNetworkId(sender, receiver, amount): sender is missing network id");
@@ -95,7 +95,7 @@ export default {
 		async send() {
 
 				// const senderId   = commands[1];
-			const senderId   = "maix.testnet";
+			const senderId   = "danail.testnet";
 			// const receiverId = commands[2];
 			const receiverId = "maix2.testnet";
 			// const amount 		 = utils.parseNearAmount(commands[3]);
@@ -125,9 +125,9 @@ export default {
 			const wallet = new WalletConnection(near)
 			// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
 			let key = (await account.getAccessKeys())
-				.filter(key => key.access_key.permission === 'FullAccess')[0]; 
+				.filter(key => key.access_key.permission === 'FullAccess')[0];
 
-			// if (key === undefined) { 
+			// if (key === undefined) {
 			// 	payload.text = `${senderId} doens't have any full access keys. Cannot send near.`;
 			// 	return payload;
 			// }

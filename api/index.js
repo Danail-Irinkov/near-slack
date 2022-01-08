@@ -138,17 +138,38 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 });
 
 exports.nearSignTransactionCallBack = functions.https.onRequest(async (req, res) => {
+	fl.log("req.query:", req.params);
+	fl.log("req.query:", req.query);
+	fl.log("req.body:", req.body);
+
+	let context
+	if (req.query.meta)
+		context = JSON.parse(req.query.meta)
+
+	let slack_redirect_url // URL to redirect the user directly to Slack App
+	if (context.team_domain && context.channel_id)
+		slack_redirect_url = `https://${context.team_domain}.slack.com/archives/${context.channel_id}`
 
 	try {
-		fl.log("req.query:", req.params);
-		fl.log("req.query:", req.query);
-		fl.log("req.body:", req.body);
+		if (context && context.response_url) {
+			await sendDataToResponseURL(context.response_url, { text: `Transaction to ${context.receiverId} was successful (${context.amount}N)`})
+		}
+
+		// TODO: Maybe record to DB successful transaction... maybe not
+
+		let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function`
+		res.header("Location", slack_redirect_url || frontend_success).send(302);
 	} catch (e) {
 		fl.error(e)
+
+		if (context && context.response_url) {
+			await sendDataToResponseURL(context.response_url, { text: `Transaction to ${context.receiverId} failed!`})
+		}
+		let frontend_fail = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=failure&key=function`
+		res.header("Location", slack_redirect_url || frontend_fail).send(302);
 	}
 
 	res.send('OK');
-
 });
 
 exports.slackHook = functions.https.onRequest(async (req, res) => {
@@ -176,7 +197,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				break
 			case 'login':
 				if (commands[1] && !validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 				console.log('before slack.login')
@@ -223,7 +244,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 
@@ -234,7 +255,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 
@@ -245,7 +266,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 
@@ -256,7 +277,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 
@@ -264,7 +285,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				break
 			case 'call':
 				if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 				if (!commands[2]) {
@@ -292,7 +313,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				break
 			case 'view':
 				if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+					response = 'Invalid NEAR Account'
 					break
 				}
 				if (!commands[2]) {
@@ -303,10 +324,16 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				response = await slack.view(payload, commands)
 				break
 			case 'send':
-				if (!validateNEARAccount(commands[1])) {
-					response = 'Invalid Near Account'
+				if (commands.length === 3 && validateNEARAccount(commands[1])) { // account missing, Getting logged in account for slack user
+					commands.splice(1, 0, await getCurrentNearAccountFromSlackUsername(payload.user_name))
+				} else if (commands.length !== 3) {
+					response = 'Improper syntax.\nPlease check /near help send'
+					break
+				} else if (!validateNEARAccount(commands[1])) {
+					response = 'Invalid NEAR Account'
 					break
 				}
+
 				console.log('before slack.send')
 				response = await slack.send(payload, commands)
 				console.log('after slack.send')

@@ -10,6 +10,8 @@ const verify = require('./utils/verify-account')
 const fs = require('fs')
 const config = require('./config')
 const open = require('open')
+const getConfig = require('../near/config')
+const {transfer, createTransaction} = require('near-api-js/lib/transaction')
 // const inspectResponse = require('./utils/inspect-response')
 
 // let login_url = 'asd2'
@@ -133,23 +135,23 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 		return Promise.reject(e)
 	}
 }
-async function generateSignTransactionURL(network, transaction) {
+async function generateSignTransactionURL(options, transaction, context) {
 	try {
-		const walletUrl = config(network).walletUrl;
-		const responeUrl = new URL('sign', walletUrl);
+		const walletUrl = options.walletUrl;
+		const signTransactionUrl = new URL('sign', walletUrl);
 
 		// the key names must not be changed because this is what wallet is expecting
 		const searchParams = {
 			transactions: Buffer.from(transaction.encode()).toString('base64'),
-			meta:	 'some_meta_data',
+			meta:	 JSON.stringify(context),
 			callbackUrl: 'https://us-central1-near-api-1d073.cloudfunctions.net/nearSignTransactionCallBack',
 		};
 
 		Object.entries(searchParams).forEach(([key, value]) => {
-			responeUrl.searchParams.set(key, value);
+			signTransactionUrl.searchParams.set(key, value);
 		});
 
-		return responeUrl.href;
+		return signTransactionUrl.href;
 	} catch (e) {
 		return Promise.reject(e)
 	}
@@ -230,13 +232,29 @@ async function callViewFunction(options) {
 		return Promise.reject(e)
 	}
 }
-async function sendMoney (options) {
-	await checkCredentials(options.sender, options.networkId, options.keyStore);
-	console.log(`Sending ${options.amount} NEAR to ${options.receiver} from ${options.sender}`);
-	const near = await connect(options);
-	const account = await near.account(options.sender);
-	const result = await account.sendMoney(options.receiver, utils.format.parseNearAmount(options.amount));
-	// inspectResponse.prettyPrintResponse(result, options);
+async function generateTransaction (options) {
+	try {
+		const nearConnection = await connect(options)
+		const account = await nearConnection.account(options.accountId)
+
+		// We don't need a fullAccessKey to create a transaction, but we need to provide one anyway
+		let key = (await account.getAccessKeys())
+			.filter(key => key.access_key.permission === 'FullAccess')[0];
+
+		if (key === undefined)
+			return `${options.accountId} doens't have any full access keys. Cannot send near.`
+
+		key = utils.key_pair.PublicKey.from(key.public_key);
+
+		const action = transfer(utils.format.parseNearAmount(options.amount))
+
+		// It seems that nonce and block hash can be random values
+		const nonce = 7560000005
+		const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256))
+		return createTransaction(options.accountId, key, options.receiverId, 7560000005, [action], blockHash)
+	} catch (e) {
+		return Promise.reject(e)
+	}
 }
 async function viewContract (options) {
 	try {
@@ -417,7 +435,7 @@ module.exports = {
 	viewContract,
 	scheduleFunctionCall,
 	callViewFunction,
-	sendMoney,
+	generateTransaction,
 	deploy,
 	login,
 }
