@@ -141,11 +141,11 @@ async function generateSignTransactionURL(options, transaction, context) {
 		const signTransactionUrl = new URL('sign', walletUrl);
 
 		// the key names must not be changed because this is what wallet is expecting
-		console.warn('transaction', transaction)
+		// console.warn('transaction', transaction)
 		const searchParams = {
 			transactions: Buffer.from(transaction.encode()).toString('base64'),
 			meta:	 JSON.stringify(context),
-			callbackUrl: 'https://us-central1-near-api-1d073.cloudfunctions.net/nearSignTransactionCallBack',
+			callbackUrl: 'https://us-central1-near-api-1d073.cloudfunctions.net/nearSignTransactionCallback',
 		};
 
 		Object.entries(searchParams).forEach(([key, value]) => {
@@ -251,7 +251,7 @@ async function queryTransactionHash (txHash, accountId) {
 }
 async function generateTransaction (options, action = 'transfer') {
 	try {
-		console.warn('generateTransaction options', options)
+		// console.warn('generateTransaction options', options)
 		const nearConnection = await connect(options)
 		const account = await nearConnection.account(options.accountId)
 

@@ -294,7 +294,6 @@ module.exports = function (db, functions) {
 					channel_id: payload.channel_id,
 					team_domain: payload.team_domain,
 					response_url: payload.response_url,
-					text: payload.text,
 					accountId: user.near_account,
 					receiverId: commands[1],
 					methodName: commands[2],

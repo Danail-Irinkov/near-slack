@@ -138,7 +138,7 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 	}
 });
 
-exports.nearSignTransactionCallBack = functions.https.onRequest(async (req, res) => {
+exports.nearSignTransactionCallback = functions.https.onRequest(async (req, res) => {
 	fl.log("req.params:", req.params);
 	fl.log("req.query:", req.query);
 	fl.log("req.body:", req.body);
@@ -303,7 +303,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				fl.log('before slack.call payload.response_url', payload.response_url)
 
 				if (commands[4] && commands[4] > 0) {
-					response = slack.functionCallWithDeposit(payload, commands)
+					response = await slack.functionCallWithDeposit(payload, commands)
 					fl.log('Call Response ', response)
 				} else {
 					// Calling background Function to Process NON-Deposit Call
@@ -371,6 +371,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			if (req.add_payload_and_commands)
 				response = {...response, payload, commands}
 
+			// fl.log('slackHook response: ', response)
 			res.send(response)
 		} else
 			res.end()
