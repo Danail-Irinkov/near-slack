@@ -11,7 +11,7 @@ const fs = require('fs')
 const config = require('./config')
 const open = require('open')
 const getConfig = require('../near/config')
-const {transfer, createTransaction} = require('near-api-js/lib/transaction')
+const {transfer, createTransaction, functionCall} = require('near-api-js/lib/transaction')
 // const inspectResponse = require('./utils/inspect-response')
 
 // let login_url = 'asd2'
@@ -141,6 +141,7 @@ async function generateSignTransactionURL(options, transaction, context) {
 		const signTransactionUrl = new URL('sign', walletUrl);
 
 		// the key names must not be changed because this is what wallet is expecting
+		console.warn('transaction', transaction)
 		const searchParams = {
 			transactions: Buffer.from(transaction.encode()).toString('base64'),
 			meta:	 JSON.stringify(context),
@@ -232,8 +233,25 @@ async function callViewFunction(options) {
 		return Promise.reject(e)
 	}
 }
-async function generateTransaction (options) {
+async function queryTransactionHash (txHash, accountId) {
 	try {
+		fl.log("queryTransactionHash Start: ", {txHash, accountId});
+		let network = getNetworkFromAccount(accountId)
+		const provider = new providers.JsonRpcProvider(
+			`https://archival-rpc.${network}.near.org`
+		);
+
+		const result = await provider.txStatus(txHash, accountId);
+		fl.log("transaction Result: ", result);
+		fl.log("transaction Result.transaction: ", result.transaction);
+		return result
+	} catch (e) {
+		return Promise.reject(e)
+	}
+}
+async function generateTransaction (options, action = 'transfer') {
+	try {
+		console.warn('generateTransaction options', options)
 		const nearConnection = await connect(options)
 		const account = await nearConnection.account(options.accountId)
 
@@ -246,12 +264,20 @@ async function generateTransaction (options) {
 
 		key = utils.key_pair.PublicKey.from(key.public_key);
 
-		const action = transfer(utils.format.parseNearAmount(options.amount))
-
+		let near_action
+		if (action === 'transfer')
+			near_action = transfer(utils.format.parseNearAmount(options.amount))
+		if (action === 'function') {
+			console.warn('generateTransaction options1')
+			near_action = functionCall(options.methodName, JSON.parse(options.args),
+			options.gas || "300000000000000",
+			utils.format.parseNearAmount(options.deposit))
+			console.warn('generateTransaction options2')
+		}
 		// It seems that nonce and block hash can be random values
 		const nonce = 7560000005
 		const blockHash = [...new Uint8Array(32)].map( _ => Math.floor(Math.random() * 256))
-		return createTransaction(options.accountId, key, options.receiverId, 7560000005, [action], blockHash)
+		return createTransaction(options.accountId, key, options.receiverId, nonce, [near_action], blockHash)
 	} catch (e) {
 		return Promise.reject(e)
 	}
@@ -435,6 +461,7 @@ module.exports = {
 	viewContract,
 	scheduleFunctionCall,
 	callViewFunction,
+	queryTransactionHash,
 	generateTransaction,
 	deploy,
 	login,

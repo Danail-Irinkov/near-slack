@@ -160,7 +160,6 @@ describe('Slack Cloud Functions', () => {
 			}
 		})
 	})
-
 	// PubSub Test Disabled due taking too long, cuz of NEAR request need to stub it
 	// describe('/near call devtest.testnet sayHi-> PubSub', () => {
 	// 	before(() => {
@@ -193,6 +192,42 @@ describe('Slack Cloud Functions', () => {
 	// 		}
 	// 	});
 	// })
+
+	describe('/near call devtest.testnet sayHi {"test_params": "adsasd"} 3', () => {
+		it('should return result from sayHi', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions,
+					'slackHook', 'call devtest.testnet sayHi {"test_params": "adsasd"} 3',
+					{add_payload_and_commands: false}
+				)
+
+				// Assert code
+				console.warn('Response slackHook call with deposit', res)
+				console.log('Response /near send maix.testnet maix2.testnet', res.attachments[0]?.actions[0]?.url)
+
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+
+	describe('/near call devtest.testnet whoSaidHi {"test_params2": "adsasd"} 2', () => {
+		it('should return result from sayHi', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions,
+					'slackHook', 'call devtest.testnet whoSaidHi {"test_params2": "adsasd"} 2',
+					{add_payload_and_commands: false}
+				)
+
+				// Assert code
+				console.warn('Response slackHook call with deposit', res)
+				console.log('Response /near call devtest.testnet whoSaidHi {"test_params2": "adsasd"} 2', res.attachments[0]?.actions[0]?.url)
+
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
 
 	describe('/near view devtest.testnet whoSaidHi', () => {
 		it('should return result from whoSaidHi', async () => {
@@ -254,10 +289,11 @@ describe('Slack Cloud Functions', () => {
 		});
 	})
 
-	describe('/near send maix.testnet maix2.testnet 1', () => {
+	describe('/near send maix2.testnet 1', () => {
 		it('returns some text and a link to sign the transaction', async () => {
 			try {
-				let res = await testHTTPFunction(myFunctions, 'slackHook', 'send maix.testnet maix2.testnet 1')
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'send maix2.testnet 1')
+				// console.warn('Response /near send maix2.testnet', res)
 				// console.log('Response /near send maix.testnet maix2.testnet', res.attachments[0]?.actions[0]?.url)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 				assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))

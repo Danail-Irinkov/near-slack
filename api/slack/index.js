@@ -268,6 +268,66 @@ module.exports = function (db, functions) {
 		}
 
 	}
+	async function functionCallWithDeposit(payload, commands) {
+		try {
+			let response
+			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
+
+			if (near.getNetworkFromAccount(user.near_account) !== near.getNetworkFromAccount(commands[1])) {
+				response = 'Mismatching sender/receiver Network'
+			} else {
+
+				let options = near.getConnectOptions(null,
+					near.getNetworkFromAccount(user.near_account),
+					{
+						accountId: user.near_account,
+						receiverId: commands[1],
+						methodName: commands[2],
+						args: commands[3],
+						deposit: commands[4]
+					})
+
+				const transaction = await near.generateTransaction(options, 'function')
+
+				let response_context = {
+					slack_username: payload.user_name,
+					channel_id: payload.channel_id,
+					team_domain: payload.team_domain,
+					response_url: payload.response_url,
+					text: payload.text,
+					accountId: user.near_account,
+					receiverId: commands[1],
+					methodName: commands[2],
+					amount: commands[4]
+				}
+				const url = await near.generateSignTransactionURL(options, transaction, response_context)
+				response = {
+					text: 'Contract calls with deposit require your signature',
+					response_type: 'ephemeral',
+					attachments: [
+						{
+							fallback: 'Sign Transaction',
+							color: "#4fcae0",
+							attachment_type: "default",
+							actions: [
+								{
+									type: "button",
+									style: "primary",
+									text: "Sign Transaction",
+									url: url
+								}
+							]
+						}
+					]
+				}
+			}
+			return response
+		} catch (e) {
+			console.log('slack-cli send err: ', e)
+			return Promise.reject(e)
+		}
+
+	}
 	async function view (payload, commands) {
 		try {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
@@ -812,6 +872,7 @@ module.exports = function (db, functions) {
 		create,
 		login,
 		send,
+		functionCallWithDeposit,
 		view,
 		call,
 		account,

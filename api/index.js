@@ -7,6 +7,7 @@ const fs = require('fs')
 const axios = require('axios')
 const {PubSub} = require('@google-cloud/pubsub');
 const pubsub = new PubSub();
+const near = require('./near');
 
 // const pubsubs = require('./pubsubs.js') // TODO: extract pubsubs into this file
 // Currently not being able to initialise imported functions with Firestore deploy
@@ -138,7 +139,7 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 });
 
 exports.nearSignTransactionCallBack = functions.https.onRequest(async (req, res) => {
-	fl.log("req.query:", req.params);
+	fl.log("req.params:", req.params);
 	fl.log("req.query:", req.query);
 	fl.log("req.body:", req.body);
 
@@ -152,7 +153,12 @@ exports.nearSignTransactionCallBack = functions.https.onRequest(async (req, res)
 
 	try {
 		if (context && context.response_url) {
-			await sendDataToResponseURL(context.response_url, { text: `Transaction to ${context.receiverId} was successful (${context.amount}N)`})
+			if (context.methodName) {
+				// TODO: Fetch functionCall result from blockchain rpc
+				// let transaction = await near.queryTransactionHash(req.query.transactionHashes, context.accountId)
+				await sendDataToResponseURL(context.response_url, { text: `Function Call to ${context.methodName}@${context.receiverId} Succeeded`})
+			}else //This is a simple transaction
+				await sendDataToResponseURL(context.response_url, { text: `Transaction to ${context.receiverId} was successful (${context.amount}N)`})
 		}
 
 		// TODO: Maybe record to DB successful transaction... maybe not
@@ -179,7 +185,8 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 	res.set('Access-Control-Allow-Headers', '*');
 
 	try {
-		if (!slack.validateRequest(req))
+		// fl.log('process.env ', process.env)
+		if (process.env.NODE_ENV === 'production' && !slack.validateRequest(req))
 			return res.send('Request Authentication Error')
 
 
@@ -295,20 +302,26 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				console.log('before slack.call')
 				fl.log('before slack.call payload.response_url', payload.response_url)
 
-				const topic2 = pubsub.topic('slackCallContractFlow');
+				if (commands[4] && commands[4] > 0) {
+					response = slack.functionCallWithDeposit(payload, commands)
+					fl.log('Call Response ', response)
+				} else {
+					// Calling background Function to Process NON-Deposit Call
+					const topic2 = pubsub.topic('slackCallContractFlow');
 
-				const messageObject2 = {
-					payload: payload,
-					commands: commands
-				};
-				const messageBuffer2 = Buffer.from(JSON.stringify(messageObject2), 'utf8');
+					const messageObject2 = {
+						payload: payload,
+						commands: commands
+					};
+					const messageBuffer2 = Buffer.from(JSON.stringify(messageObject2), 'utf8');
 
-				// Publishes a message
-				await topic2.publish(messageBuffer2);
+					// Publishes a message
+					await topic2.publish(messageBuffer2);
 
-				response = {
-					text: 'Processing Function Call...',
-					response_type: 'ephemeral'
+					response = {
+						text: 'Processing Function Call...',
+						response_type: 'ephemeral'
+					}
 				}
 				break
 			case 'view':
