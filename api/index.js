@@ -225,7 +225,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 
 				response = {
 					text: 'Initializing account...',
-					response_type: 'ephemeral'
+					response_type: 'ephemeral',
 				}
 				break
 			case 'logout':
@@ -249,7 +249,8 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			case 'account':
 				console.log('before slack.account')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
-					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
+					const current_account = await getCurrentNearAccountFromSlackUsername(payload.user_name)
+					commands.push(current_account)
 				} else if (!validateNEARAccount(commands[1])) {
 					response = 'Invalid NEAR Account'
 					break
@@ -353,7 +354,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				break
 			case 'help':
 				console.log('before slack.help')
-				response = await slack.help(commands)
+				response = await slack.help(payload, commands)
 				break
 
 			case 'delete':
@@ -545,7 +546,7 @@ function formatErrorMsg(e) {
 	else if (typeof e === 'object' && e.text)
 		err_msg = e
 
-	return { text: err_msg }
+	return e?.text ? err_msg : { text: err_msg }
 }
 async function getContractByAccountAndPublicKey(slack_username, near_account, public_key) {
 	let contract = {}
@@ -665,7 +666,7 @@ async function getCurrentNearAccountFromSlackUsername(user_name) {
 	try {
 		console.time('getCurrentNearAccountFromSlackUsername db.collection(users)')
 		let user = (await db.collection('users').doc(slack.createUserDocId(user_name)).get()).data()
-		if(!user.near_account) {
+		if(!user?.near_account) {
 			let response = {
 				text: 'You are not logged in. Try /near login',
 				attachments: [
@@ -686,6 +687,7 @@ async function getCurrentNearAccountFromSlackUsername(user_name) {
 					}
 				]
 			}
+			console.timeEnd('getCurrentNearAccountFromSlackUsername db.collection(users)')
 			return Promise.reject(response)
 		}
 		console.timeEnd('getCurrentNearAccountFromSlackUsername db.collection(users)')

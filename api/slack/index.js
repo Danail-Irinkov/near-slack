@@ -510,12 +510,13 @@ module.exports = function (db, functions) {
 
 	}
 
-	async function help (commands) {
+	async function help (payload, commands) {
 		let help = {
 			text: 'Available commands:\n' +
 				'login, contract, send, view, call, account, ...\n' +
 				'for more details use /near help {command}',
-			// "response_type": "ephemeral ",
+			// "response_type": "ephemeral",
+			response_type: 'in_channel',
 			attachments: [
 				{
 					text: 'Choose a command',
@@ -773,7 +774,12 @@ module.exports = function (db, functions) {
 			default:
 				help.text = 'We haven\'t added "' + commands[1] + '" command yet ;)'
 		}
-
+		if (!commands[1]){
+			help.channel = payload.channel_id
+		} else {
+			help.response_type = 'ephemeral'
+			help.attachments[0].callback_id = 'command_help_'+commands[1]
+		}
 		return help
 	}
 
