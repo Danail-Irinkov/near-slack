@@ -128,9 +128,15 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 		}
 
 		await slack.installer.handleCallback(req, res)
-		let slack_redirect_url = `https://proccmaingmai-tc79872.slack.com/archives/C02RKJC9DE3`
-		// res.header("Location", slack_redirect_url).send(302);
-		res.header("Location", `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=slack`).send(302);
+
+		let slack_redirect_url
+
+		let context = req.body
+		if (context.team_domain && context.channel_id)
+			slack_redirect_url = `https://${context.team_domain}.slack.com/archives/${context.channel_id}`
+		let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=slack`
+
+		res.header("Location", slack_redirect_url || frontend_success).send(302)
 	} catch (e) {
 		fl.error(e)
 		// return res.status(502).end()
@@ -189,14 +195,93 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		if (process.env.NODE_ENV === 'production' && !slack.validateRequest(req))
 			return res.send('Request Authentication Error')
 
-
+		fl.log('slackHook req', req.body)
 		let payload = parseSlackPayload(req)
-		fl.log('slackHook payload', payload);
+		fl.log('slackHook payload', payload)
 		let commands = await parseSlackCommands(payload)
-		fl.log('slackHook commands', commands);
+		fl.log('slackHook commands', commands)
 
+		if(payload.state) {
+			fl.log('slackHook2 payload.state.values.call_deposit.value', payload.state.values.call_deposit.plain_input_deposit.value);
+			fl.log('slackHook2 payload.state.values.call_arguments.value', payload.state.values.call_arguments.plain_input_arguments.value);
+		}
+		if(payload.actions) {
+			fl.log('slackHook payload.actions[0].value', payload.actions[0].value);
+		}
 		// fl.log('payload.token', payload.token);
 
+		if (commands[0] && commands[0] === 'test') {
+			return res.send({
+				response_type: 'ephemeral',
+				blocks: [
+					{
+						type: 'section',
+						text: {
+							type: 'mrkdwn',
+							text: 'Do you want to add arguments and/or deposit?'
+						}
+					},
+					{
+						type: 'input',
+						block_id: 'call_arguments',
+						element: {
+							type: 'plain_text_input',
+							action_id: "plain_input_arguments",
+							placeholder: {
+								type: "plain_text",
+								text: '{"argument1": "value1", ...}'
+							}
+						},
+						label: {
+							type: 'plain_text',
+							text: 'Arguments (JSON)',
+							emoji: false
+						}
+					},
+					{
+						type: 'input',
+						block_id: 'call_deposit',
+						element: {
+							type: 'plain_text_input',
+							action_id: "plain_input_deposit",
+							placeholder: {
+								type: "plain_text",
+								text: '0'
+							}
+						},
+						label: {
+							type: 'plain_text',
+							text: 'Deposit',
+							emoji: false
+						}
+					},
+					{
+						type: 'actions',
+						elements: [
+							{
+								type: 'button',
+								text: {
+									type: 'plain_text',
+									emoji: true,
+									text: 'Add'
+								},
+								style: 'primary',
+								value: 'call devtest.testnet sayHi add'
+							},
+							{
+								type: 'button',
+								text: {
+									type: 'plain_text',
+									emoji: true,
+									text: 'Skip'
+								},
+								value: 'call devtest.testnet sayHi skip'
+							}
+						]
+					}
+				]
+			})
+		}
 		let response = `Hello from NEAR-Slack.\nI don't know '${commands[0]}', try /near help`
 		switch (commands[0]) {
 			case 'create':
@@ -300,10 +385,15 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					response = 'Missing Call Method Name'
 					break
 				}
+
 				console.log('before slack.call')
 				fl.log('before slack.call payload.response_url', payload.response_url)
 
-				if (commands[4] && commands[4] > 0) {
+				if (!commands[3]) {
+					response = slack.getCallInterractiveInput(payload, commands)
+				} else if (commands[3] === 'cancel') {
+					response = { delete_original: true }
+				} else if (commands[4] && Number(commands[4]) > 0) {
 					response = await slack.functionCallWithDeposit(payload, commands)
 					fl.log('Call Response ', response)
 				} else {
@@ -372,13 +462,20 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			if (req.add_payload_and_commands)
 				response = {...response, payload, commands}
 
-			// fl.log('slackHook response: ', response)
-			res.send(response)
+			if(payload.state && payload.response_url) {
+				fl.log('slackHook response state: ', response)
+				sendDataToResponseURL(payload.response_url, response)
+				res.send({ delete_original: true })
+			} else {
+				fl.log('slackHook response: ', response)
+				res.send(response)
+			}
 		} else
 			res.end()
 	} catch (e){
-		fl.log(e, 'slackHook ERROR: ')
+		fl.log('slackHook ERROR1: ', e)
 		let err_msg = formatErrorMsg(e)
+		fl.log('slackHook ERROR2: ', err_msg)
 		res.send(err_msg)
 	}
 })
@@ -388,10 +485,10 @@ exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
 		if(!req.query.account_id || !req.query.all_keys) return res.status(502).end('Missing required fields')
 		fl.log(req.query, 'nearLoginRedirect query')
 
-		let response_url = req.query.response_url || ''
-		let team_domain = req.query.team_domain || ''
-		let channel_id = req.query.channel_id || ''
-		let text = req.query.text || ''
+		let response_url = req.query.response_url || req.body.response_url || ''
+		let team_domain = req.query.team_domain || req.body.team_domain || ''
+		let channel_id = req.query.channel_id || req.body.channel_id || ''
+		let text = req.query.text || req.body.text || ''
 
 		let slack_redirect_url // URL to redirect the user directly to Slack App
 		if (team_domain && channel_id)
@@ -546,7 +643,10 @@ function formatErrorMsg(e) {
 	else if (typeof e === 'object' && e.text)
 		err_msg = e
 
-	return e?.text ? err_msg : { text: err_msg }
+	let err_obj = e?.text ? err_msg : { text: err_msg }
+	err_obj.delete_original = true
+
+	return err_obj
 }
 async function getContractByAccountAndPublicKey(slack_username, near_account, public_key) {
 	let contract = {}
@@ -626,30 +726,54 @@ async function parseSlackCommands(payload) {
 	// Handling Payload from Interactive Help Menu - END
 	commands = commands.replace('  ', ' ')
 	let commands_array = commands.split(' ')
-	// fl.log('commands_array1', commands_array)
+	fl.log('commands_array1', commands_array)
 
 	if (commands_array[0] === 'call' && commands_array[3]){
 		// Parsing JSON arguments Input
-		if(commands_array[3].charAt(0) !== '{')
-			return Promise.reject('Invalid Arguments, please check /near help call')
 
 		//Parsing call function JSON arguments
 		let first_json_index = commands.indexOf('{')
 		let last_json_index = commands.indexOf('}')+1
-		let json_str = commands.slice(first_json_index, last_json_index)
-		try {
-			JSON.parse(json_str);
-		} catch (e) {
-			return Promise.reject('Arguments are not a valid JSON')
+		let arguments = commands.slice(first_json_index, last_json_index)
+		let deposit = commands_array[4] && !Number.isNaN(commands_array[4]) ? Number(commands_array[4]) : '0'
+
+		if(commands_array[3] === 'add') {
+			// Inject slack input fields into commands
+			arguments = payload?.state?.values?.call_arguments?.plain_input_arguments?.value || '{}'
+			deposit = payload?.state?.values?.call_deposit?.plain_input_deposit?.value || '0'
+		}	else if(commands_array[3] === 'skip') {
+			// Inject slack input fields into commands
+			arguments = '{}'
+			deposit = '0'
+		}	else if(commands_array[3] === 'cancel') {
+			// Cancel and Delete Interractive BLocks
+			arguments = 'cancel'
+			deposit = '0'
+		}
+		else if(commands_array[3].charAt(0) !== '{') {
+			return Promise.reject('Invalid Function Arguments, please check /near help call')
+		}
+		fl.log('slackHook commands_array3', commands_array)
+		fl.log('slackHook arguments', arguments)
+		fl.log('slackHook deposit', deposit)
+
+		if(commands_array[3] !== 'cancel') {
+			try {
+				JSON.parse(arguments);
+			} catch (e) {
+				return Promise.reject('Arguments are not a valid JSON')
+			}
+		}
+
+		commands_array = commands_array.slice(0, 3)
+		if(arguments) {
+			commands_array.push(arguments)
+		}
+		if(deposit) {
+			commands_array.push(deposit)
 		}
 		// fl.log('commands.replace1', commands)
-		// fl.log('commands.substring', commands.substring(first_json_index, last_json_index+1))
-		commands = commands.replace(commands.substring(first_json_index, last_json_index+1), '')
-		// fl.log('commands.replaced2', commands)
-		commands_array = commands.split(' ')
-		// fl.log('commands.split2', commands_array)
-		commands_array.splice(3,0, json_str)
-		// fl.log('commands.spliced', commands_array)
+		fl.log('commands.spliced', commands_array)
 	}
 	// fl.log('commands_array final', commands_array)
 	return commands_array
@@ -667,26 +791,7 @@ async function getCurrentNearAccountFromSlackUsername(user_name) {
 		console.time('getCurrentNearAccountFromSlackUsername db.collection(users)')
 		let user = (await db.collection('users').doc(slack.createUserDocId(user_name)).get()).data()
 		if(!user?.near_account) {
-			let response = {
-				text: 'You are not logged in. Try /near login',
-				attachments: [
-					{
-						color: '#4fcae0',
-						attachment_type: 'default',
-						callback_id: 'login_from_help',
-						fallback: '/near login',
-						actions: [
-							{
-								type: 'button',
-								style: 'primary',
-								text: 'Connect NEAR Wallet',
-								name: 'login',
-								value: 'login'
-							}
-						]
-					}
-				]
-			}
+			let response = slack.notLoggedInResponse()
 			console.timeEnd('getCurrentNearAccountFromSlackUsername db.collection(users)')
 			return Promise.reject(response)
 		}

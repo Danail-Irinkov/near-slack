@@ -1,6 +1,10 @@
 <template>
   <div class="container mx-auto my-auto" style="max-width: 600px;padding-top: 15vh; padding-bottom: 15vh">
     <SlackIntegration />
+
+
+
+
   </div>
 </template>
 

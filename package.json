@@ -11,6 +11,7 @@
     "testdev": "cd api && yarn testdev",
     "apii": "cd api && npm i",
     "apid": "cd api && firebase deploy",
+    "apids": "cd api && firebase deploy --only functions:slackHook",
     "apie": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase emulators:start --only functions",
     "apied": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase --debug emulators:start --only functions"
   },

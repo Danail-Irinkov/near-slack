@@ -268,12 +268,118 @@ module.exports = function (db, functions) {
 		}
 
 	}
+	function getCallInterractiveInput(payload, commands) {
+		return {
+			response_type: 'ephemeral',
+			blocks: [
+				{
+					type: 'section',
+					text: {
+						type: 'mrkdwn',
+						text: 'Do you want to add arguments or deposit?'
+					}
+				},
+				{
+					type: 'input',
+					block_id: 'call_arguments',
+					element: {
+						type: 'plain_text_input',
+						action_id: "plain_input_arguments",
+						placeholder: {
+							type: "plain_text",
+							text: '{"argument1": "value1", ...}'
+						}
+					},
+					label: {
+						type: 'plain_text',
+						text: 'Arguments (JSON)',
+						emoji: false
+					}
+				},
+				{
+					type: 'input',
+					block_id: 'call_deposit',
+					element: {
+						type: 'plain_text_input',
+						action_id: "plain_input_deposit",
+						placeholder: {
+							type: "plain_text",
+							text: '0'
+						}
+					},
+					label: {
+						type: 'plain_text',
+						text: 'Deposit',
+						emoji: false
+					}
+				},
+				{
+					type: 'actions',
+					elements: [
+						{
+							type: 'button',
+							text: {
+								type: 'plain_text',
+								emoji: true,
+								text: 'Add'
+							},
+							style: 'primary',
+							value: `call ${commands[1]} sayHi add`
+						},
+						{
+							type: 'button',
+							text: {
+								type: 'plain_text',
+								emoji: true,
+								text: 'Skip'
+							},
+							value: `call ${commands[1]} sayHi skip`
+						},
+						{
+							type: 'button',
+							text: {
+								type: 'plain_text',
+								emoji: true,
+								text: 'Cancel'
+							},
+							style: 'danger',
+							value: `call ${commands[1]} sayHi cancel`
+						}
+					]
+				}
+			]
+		}
+	}
+	function notLoggedInResponse(payload, commands) {
+		return {
+			text: 'You are not logged in. Try /near login',
+			attachments: [
+				{
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'login_from_help',
+					fallback: '/near login',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Connect NEAR Wallet',
+							name: 'login',
+							value: 'login'
+						}
+					]
+				}
+			]
+		}
+	}
 	async function functionCallWithDeposit(payload, commands) {
 		try {
 			let response
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
-			if (near.getNetworkFromAccount(user.near_account) !== near.getNetworkFromAccount(commands[1])) {
+			if (!user.near_account) {
+				response = notLoggedInResponse()
+			} else if (near.getNetworkFromAccount(user.near_account) !== near.getNetworkFromAccount(commands[1])) {
 				response = 'Mismatching sender/receiver Network'
 			} else {
 
@@ -322,7 +428,7 @@ module.exports = function (db, functions) {
 			}
 			return response
 		} catch (e) {
-			console.log('slack-cli send err: ', e)
+			console.log('functionCallWithDeposit err: ', e)
 			return Promise.reject(e)
 		}
 
@@ -331,7 +437,7 @@ module.exports = function (db, functions) {
 		try {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 			if (!user.near_account)
-				return Promise.reject('Please Login using /near login')
+				return Promise.reject(notLoggedInResponse())
 
 			let options = near.getConnectOptions(null,
 				near.getNetworkFromAccount(commands[1]),
@@ -364,7 +470,7 @@ module.exports = function (db, functions) {
 			let user = (await db.collection('users').doc(createUserDocId(payload.user_name)).get()).data()
 
 			if (!user.near_account)
-				return Promise.reject('Please Login using /near login')
+				return Promise.reject(notLoggedInResponse())
 
 			fl.log(commands, 'call commands2')
 			if (!near.userHasActiveContractFCKey(user, commands[1])) {
@@ -515,8 +621,8 @@ module.exports = function (db, functions) {
 			text: 'Available commands:\n' +
 				'login, contract, send, view, call, account, ...\n' +
 				'for more details use /near help {command}',
-			// "response_type": "ephemeral",
-			response_type: 'in_channel',
+			response_type: 'ephemeral',
+			// response_type: 'in_channel',
 			attachments: [
 				{
 					text: 'Choose a command',
@@ -877,6 +983,8 @@ module.exports = function (db, functions) {
 		create,
 		login,
 		send,
+		getCallInterractiveInput,
+		notLoggedInResponse,
 		functionCallWithDeposit,
 		view,
 		call,
