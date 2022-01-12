@@ -7,16 +7,6 @@ const { Pool, Client } = require('pg')
 const pool_testnet = new Pool({connectionString: 'postgres://public_readonly:nearprotocol@testnet.db.explorer.indexer.near.dev/testnet_explorer'})
 const pool_mainnet = new Pool({connectionString: 'postgres://public_readonly:nearprotocol@mainnet.db.explorer.indexer.near.dev/mainnet_explorer'})
 
-pool_testnet.query('SELECT NOW()', (err, res) => {
-  console.log(err, res)
-  pool_testnet.end()
-})
-
-pool_testnet.query('SELECT NOW()', (err, res) => {
-  console.log("PG_TESTNET: ", err, res)
-  pool.end()
-})
-
 async function query(text, params, pool) {
 	const start = Date.now()
 	const res = await pool.query(text, params)
