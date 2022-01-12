@@ -11,7 +11,7 @@ const fs = require('fs')
 const config = require('./config')
 const open = require('open')
 const getConfig = require('../near/config')
-const {transfer, createTransaction, functionCall} = require('near-api-js/lib/transaction')
+const {transfer, createTransaction, functionCall} = require('near-api-js/lib/transaction');
 // const inspectResponse = require('./utils/inspect-response')
 
 // let login_url = 'asd2'
@@ -433,6 +433,21 @@ async function login(options) {
 		}
 	}
 }
+
+async function transactionsCommand(options) {
+	const pg = require('../pgDB');
+	const query = options.networkId === 'testnet' ? pg.queryTestnet : pg.queryMainnet;
+	const res = query(
+`\
+SELECT block_timestamp, signer_account_id, receiver_account_id \
+FROM transactions \
+WHERE signer_account_id = $1 OR receiver_account_id = $1 \
+`,
+		[options.accountId]
+	);
+	return res;
+}
+
 function handleExceededThePrepaidGasError(error, options) {
 	console.log(`\nTransaction ${error.transaction_outcome.id} had ${options.gas} of attached gas but used ${error.transaction_outcome.outcome.gas_burnt} of gas`);
 	console.log('View this transaction in explorer:', `https://explorer.${options.networkId}.near.org/transactions/${error.transaction_outcome.id}`);
@@ -465,4 +480,5 @@ module.exports = {
 	generateTransaction,
 	deploy,
 	login,
+	transactionsCommand,
 }

@@ -951,8 +951,22 @@ module.exports = function (db, functions) {
 		}
 	}
 
-	async function hello () {
-		return "Hello from near-cli";
+	/**
+	 * commands[1] = accountId
+	 */
+	async function transactions (payload, commands) {
+		try {
+			const accountId = commands[1];
+			const options = near.getConnectOptions(
+				null, 
+				near.getNetworkFromAccount(accountId),
+				{accountId}
+			);
+			return await near.transactionsCommand(options);
+		} catch (e) {
+			console.log('slack-cli keys err: ', e)
+			return Promise.reject(e)
+		}
 	}
 
 	function createUserDocId(string) {
@@ -995,8 +1009,8 @@ module.exports = function (db, functions) {
 		help,
 		getDeletionResponse,
 		createUserDocId,
-		hello,
-		stringifyResponse
+		stringifyResponse,
+		transactions,
 	}
 }
 

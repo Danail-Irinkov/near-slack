@@ -8,6 +8,7 @@ const axios = require('axios')
 const {PubSub} = require('@google-cloud/pubsub');
 const pubsub = new PubSub();
 const near = require('./near');
+// const slack = require('./slack')
 
 // const pubsubs = require('./pubsubs.js') // TODO: extract pubsubs into this file
 // Currently not being able to initialise imported functions with Firestore deploy
@@ -442,6 +443,18 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				response = await slack.send(payload, commands)
 				console.log('after slack.send')
 				break
+			case 'transactions':
+				if (commands.length === 1) {
+					console.log("__________________________________________________________________________________");
+					console.log("payload.user_name", payload.user_name);
+					const accountId = await getCurrentNearAccountFromSlackUsername(payload.user_name); 
+					console.log("accountId", accountId);
+					commands.push(accountId)
+					response = await slack.transactions(payload, commands);
+				} else {
+					response = 'Improper syntax.\nPlease check /near help transactions'
+				}
+				break;
 			case 'help':
 				console.log('before slack.help')
 				response = await slack.help(payload, commands)

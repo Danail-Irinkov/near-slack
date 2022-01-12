@@ -302,6 +302,19 @@ describe('Slack Cloud Functions', () => {
 			}
 		});
 	})
+
+	describe('/near transactions', () => {
+		it('returns log of all transaction for a user', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'transactions')
+				console.log('Response /near transactions', res);
+				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+				assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))
+			} catch (e) {
+				return Promise.reject(e)
+			}
+		});
+	})
 })
 
 
