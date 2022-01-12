@@ -268,11 +268,9 @@ async function generateTransaction (options, action = 'transfer') {
 		if (action === 'transfer')
 			near_action = transfer(utils.format.parseNearAmount(options.amount))
 		if (action === 'function') {
-			console.warn('generateTransaction options1')
 			near_action = functionCall(options.methodName, JSON.parse(options.args),
 			options.gas || "300000000000000",
 			utils.format.parseNearAmount(options.deposit))
-			console.warn('generateTransaction options2')
 		}
 		// It seems that nonce and block hash can be random values
 		const nonce = 7560000005

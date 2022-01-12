@@ -50,48 +50,50 @@ global.db = db
 
 
 exports.healthDB = functions.https.onRequest(async (req, res) => {
-	let test_res = await exampleDBReadWriteDelete()
+	let test_res = await setupTestDBUser(req, res)
 	res.send(test_res);
 });
 
 
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
 	console.log('loginPubSub Start')
-	// console.log('loginPubSub Start', message)
-	if (!message.data) return
+	// console.warn('loginPubSub Start', message)
+	if (!(message.payload && message.commands))
+		return 'loginPubSub Bad Input'
 
-	const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+	// const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
 	// console.log('loginPubSub data', data)
-	const payload = data.payload
-	const commands = data.commands
-	// console.log('loginPubSub payload', payload)
-	// console.log('loginPubSub commands', commands)
+	const payload = message.payload
+	const commands = message.commands
+	// console.warn('loginPubSub payload', payload)
+	// console.warn('loginPubSub commands', commands)
 
 	try {
 		let login_data = await slack.login(payload, commands)
-		fl.log('slack.login Success Start'+JSON.stringify(login_data))
+		// console.warn('loginPubSub login_data', login_data)
+		// fl.log('slack.login Success Start', login_data)
 
-		await sendDataToResponseURL(payload.response_url, login_data)
+		if(payload.mock_near_request)
+			return login_data
+		else
+			return await sendDataToResponseURL(payload.response_url, login_data)
 	} catch (e) {
 		fl.log('loginPubSub err: '+JSON.stringify(e))
 		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + e.message })
+		return Promise.reject(e)
 	}
 })
 
 exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').onPublish(async (message) => {
-	fl.log('slackCallContractFlow PubSub Start')
-	console.log('slackCallContractFlow Start', message)
-	let data
-	if (message.data)
-		data = JSON.parse(Buffer.from(message.data, 'base64').toString())
-	else if (message.payload && message.commands)
-		data = message
-	else
-		return 'Bad Input'
+	// fl.log('slackCallContractFlow PubSub Start')
+	// console.log('slackCallContractFlow Start', message)
+
+	if (!(message.payload && message.commands))
+		return 'slackCallContractFlow Bad Input'
 
 	// console.log('slackCallContractFlow data', data)
-	const payload = data.payload
-	const commands = data.commands
+	const payload = message.payload
+	const commands = message.commands
 	fl.log('slackCallContractFlow payload', payload)
 	fl.log('slackCallContractFlow commands', commands)
 
@@ -298,16 +300,10 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				// Needed to workaround Slack timeout limit (using PubSUb)
 				// Maximum execution time for slack hook is 2.5sec, this login takes 4-5sec, so delaying the response
 				const topic = pubsub.topic('slackLoginFlow');
-
-				const messageObject = {
+				await topic.publishMessage({ json: {
 						payload: payload,
 						commands: commands
-				};
-				const messageBuffer = Buffer.from(JSON.stringify(messageObject), 'utf8');
-
-				// Publishes a message
-				await topic.publishMessage({ json: messageObject});
-				//END  (using PubSUb)
+					} });
 
 				response = {
 					text: 'Initializing account...',
@@ -398,17 +394,12 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					response = await slack.functionCallWithDeposit(payload, commands)
 					fl.log('Call Response ', response)
 				} else {
-					// Calling background Function to Process NON-Deposit Call
+					// Calling background PubSub Function to Process NON-Deposit Call
 					const topic2 = pubsub.topic('slackCallContractFlow');
-
-					const messageObject2 = {
-						payload: payload,
-						commands: commands
-					};
-					const messageBuffer2 = Buffer.from(JSON.stringify(messageObject2), 'utf8');
-
-					// Publishes a message
-					await topic2.publish(messageBuffer2);
+					await topic2.publishMessage({ json: {
+							payload: payload,
+							commands: commands
+						} });
 
 					response = {
 						text: 'Processing Function Call...',
@@ -447,7 +438,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				if (commands.length === 1) {
 					console.log("__________________________________________________________________________________");
 					console.log("payload.user_name", payload.user_name);
-					const accountId = await getCurrentNearAccountFromSlackUsername(payload.user_name); 
+					const accountId = await getCurrentNearAccountFromSlackUsername(payload.user_name);
 					console.log("accountId", accountId);
 					commands.push(accountId)
 					response = await slack.transactions(payload, commands);
@@ -590,34 +581,56 @@ exports.nearLoginRedirect = functions.https.onRequest(async (req, res) => {
 	}
 });
 
-async function exampleDBReadWriteDelete() {
+const testUserDbSnapshot = {
+	api_app_id:	"A02RLUK9PFV",
+	channel_name:	"near-test1",
+	near: {
+		dan21_1testnet: {
+			contracts: {
+				devtest1_1testnet: {
+					contract_name: "devtest.testnet",
+					private_key: "ed25519:64zKWH3aZLcJUSTqE4UyyUHdoJ8846jhHGfRZ4NjaXxT1a2QspYT8ZMSStw3BN64W2poAG91kcw3uY1k6BQQhktE",
+					public_key: "ed25519:A1AXx2oLHhMKrHpd7c8Kcr3E1bzuLtmLhQKPpPPdqydp",
+					status: "active",
+				}
+			},
+			near_account: "dan2.testnet",
+		},
+	},
+	near_account:	"dan2.testnet",
+	near_account_last: "danail.testnet",
+	near_fn_key: "ed25519:As4umurSTn79ZpNNxgnarBYhqtbC3LQXHWSJ1tQqNU42",
+	slack_token: "gh18PaaAfvc2I0W7SJzcPOkY",
+	slack_username:	"procc.main_test",
+	team_domain: "proccmaingmai-tc79872",
+	team_id: "T02MCFBJMUH"
+}
+
+async function setupTestDBUser(req, res) {
 	try {
-		console.log("exampleDBReadWriteDelete Start: ");
-		// const docRef = db.collection('users').doc('alovelace');
-		// let write = await docRef.set({
-		// 	first: 'Ada',
-		// 	last: 'Lovelace',
-		// 	born: 1815
-		// });
-		// console.log("exampleDBReadWriteDelete write: ", write);
-
-		// const doc = await db.collection('users').doc('alovelace').get();
-		// // console.log("exampleDBReadWriteDelete user: ", doc.id, '=>', doc.data());
-
-		const deletion = await db.collection('users').doc('alovelace').delete()
-		// console.log("exampleDBReadWriteDelete deletion: ", deletion);
-
-		// const deleted_doc = await db.collection('users').doc('alovelace').get();
-		// // console.log("exampleDBReadWriteDelete Deleted User: ", deleted_doc);
+		console.log("setupTestDBUser Start: ", req?.query);
+		let write, deletion, doc
+		if (req?.query?.add_test_user) {
+			const docRef = db.collection('users').doc('procc1_1main_test');
+			write = await docRef.set(testUserDbSnapshot);
+			console.log("setupTestDBUser write: ", write);
+		}
+		if (req?.query?.get_test_user) {
+			doc = await db.collection('users').doc('procc1_1main_test').get();
+			// console.log("setupTestDBUser user: ", doc.id, '=>', doc.data());
+		}
+		if (req?.query?.delete_test_user) {
+			deletion = await db.collection('users').doc('procc1_1main_test').delete()
+			// console.log("setupTestDBUser deletion: ", deletion);
+		}
 
 		return {
-			// write,
-			// doc,
-			deletion,
-			// deleted_doc
+			write,
+			doc,
+			deletion
 		}
 	} catch (e) {
-		console.log("exampleDBReadWriteDelete err: ", e);
+		console.warn("setupTestDBUser err: ", e);
 		return Promise.reject(e)
 	}
 
@@ -748,7 +761,7 @@ async function parseSlackCommands(payload) {
 		let first_json_index = commands.indexOf('{')
 		let last_json_index = commands.indexOf('}')+1
 		let arguments = commands.slice(first_json_index, last_json_index)
-		let deposit = commands_array[4] && !Number.isNaN(commands_array[4]) ? Number(commands_array[4]) : '0'
+		let deposit = commands_array[4] && !Number.isNaN(commands_array[commands_array.length - 1]) ? String(commands_array[commands_array.length - 1]) : '0'
 
 		if(commands_array[3] === 'add') {
 			// Inject slack input fields into commands

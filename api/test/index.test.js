@@ -18,23 +18,7 @@ const chai = require('chai');// Chai is a commonly used library for creating uni
 const assert = chai.assert;
 const sinon = require('sinon'); // Sinon is a library used for mocking or verifying function calls in JavaScript.
 
-const slackHookData = {
-	user_name: 'procc.main',
-	command: '/near',
-	team_domain: 'proccmaingmai-tc79872',
-	token: 'gh18PaaAfvc2I0W7SJzcPOkY',
-	channel_id: 'D02RZHPUWHF',
-	trigger_id: '2898159688640.2726521633969.939b92e730bde0c5050b4d579d3bf99d',
-	channel_name: 'directmessage',
-	api_app_id: 'A02RLUK9PFV',
-	is_enterprise_install: false,
-	user_id: 'U02MPHH5FC0',
-	text: 'help',
-	team_id: 'T02MCFBJMUH',
-	response_url: 'https://hooks.slack.com/commands/T02MCFBJMUH/2867751902902/UGlFPuHJFzqWb9w3tSjvfFQU'
-}
-
-describe('Slack Cloud Functions', () => {
+describe('Slack Slash Commands Tests', () => {
 	let myFunctions
 	let testSlackCall1
 
@@ -61,16 +45,17 @@ describe('Slack Cloud Functions', () => {
 	// describe("Call123", require('./call.test.js').bind(this));
 	let payload, commands
 
-	describe('Testing DB access health', () => {
+	describe('Setting Up Test DB User', () => {
 		it('Success', async () => {
 			try {
-				let res = await testHTTPFunction(myFunctions, 'healthDB')
+				let res = await testHTTPFunction(myFunctions, 'healthDB', '',
+					{ query: { add_test_user: true }})
 				console.log('Testing DB access health res: ', res)
 				assert.isTrue(!!(
-					// res.write
+					res.write
 					// && res.doc.exists
 					// && res.deletion
-					res.deletion
+					// res.deletion
 					// && !res.deleted_doc.exists
 				))
 			}catch (e) {
@@ -80,7 +65,7 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near create', () => {
-		it('should return slack response object', async () => {
+		it('returns a button redirecting to NEAR wallet create', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'create')
 				console.log('/near create', res)
@@ -90,45 +75,67 @@ describe('Slack Cloud Functions', () => {
 			}
 		})
 	})
-	describe('/near delete personal data', () => {
-		it('should return slack response object with buttons', async () => {
+	describe('/near login', () => {
+		it('returns "Initializing account"', async () => {
 			try {
-				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data')
-				console.warn('/near delete personal data', res)
-				assert.isTrue(!!(
-					res.text
-					&& res.text.indexOf('WARNING!') !== -1
-					&& res.attachments && res.attachments[0]
-					&& res.attachments[0].actions
-					&& res.attachments[0].actions.length
-				))
+				let res = await testHTTPFunction(myFunctions, 'slackHook',
+					'login', {add_payload_and_commands: true})
+				console.log('/near login', res)
+				// extract payload and commands
+				payload = {...res.payload}
+				commands = [...res.commands]
+				delete res.payload
+				delete res.commands
+
+				// Assert Payload and Commands
+				assert.isTrue(!!payload.user_name)
+				assert.isTrue(!!payload.team_domain)
+				assert.isTrue(!!payload.token)
+				assert.isTrue(!!payload.response_url)
+				assert.isTrue(commands.indexOf('login') === 0)
+
+				// Assert code
+				assert.isTrue(!!(res.text && res.text.indexOf('Initializing account') !== -1))
 			}catch (e) {
 				return Promise.reject(e)
 			}
 		})
 	})
-	describe('/near delete personal data check', () => {
-		it('should return slack response object with buttons', async () => {
-			try {
-				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data check')
-				console.log('/near delete personal data', res)
 
-				assert.isTrue(!!(
-					res.text
-					&& res.text.indexOf('LAST WARNING') !== -1
-					&& res.attachments && res.attachments[0]
-					&& res.attachments[0].actions
-					&& res.attachments[0].actions.length
-				))
+	describe('/near login -> PubSub', () => {
+		it('returns button to redirect to NEAR wallet Login', async () => {
+			try {
+				const messageObject = {
+					payload: { ...payload, mock_near_request: true },
+					commands: commands
+				};
+
+				let res = await myFunctions.loginPubSub.run(messageObject, {})
+				console.log('loginPubSub res', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('Login Successful') !== -1))
+			} catch (e) {
+				console.error('loginPubSub err', e)
+				return Promise.reject(e)
+			}
+		});
+	})
+
+	describe('/near login other_account.testnet', () => {
+		it('returns "Initializing account"', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'login other_account.testnet')
+				console.log('/near login other_account.testnet', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('Initializing account') !== -1))
 			}catch (e) {
 				return Promise.reject(e)
 			}
 		})
 	})
 	describe('/near call devtest.testnet sayHi', () => {
-		it('should return result from sayHi', async () => {
+		it('returns interactive input fields for function arguments and deposit', async () => {
 			try {
-				let res = await testHTTPFunction(myFunctions, 'slackHook', 'call devtest.testnet sayHi', {add_payload_and_commands: true})
+				let res = await testHTTPFunction(myFunctions, 'slackHook',
+					'call devtest.testnet sayHi', {add_payload_and_commands: true})
 				console.log('/near call devtest.testnet sayHi', res)
 				// extract payload and commands
 				payload = {...res.payload}
@@ -136,65 +143,43 @@ describe('Slack Cloud Functions', () => {
 				delete res.payload
 				delete res.commands
 
-				// Assert code
-				console.log('Response slackHook', res)
-				assert.deepStrictEqual(res,
-					{
-						text: 'Processing Function Call...',
-						response_type: 'ephemeral'
-					})
-
-				console.log('\nResponse payload', payload)
-				console.log('Response payload\n')
+				// Assert Payload and Commands
 				assert.isTrue(!!payload.user_name)
 				assert.isTrue(!!payload.team_domain)
 				assert.isTrue(!!payload.token)
 				assert.isTrue(!!payload.response_url)
-
-				console.log('\nResponse commands', commands)
-				console.log('Response commands\n')
 				assert.isTrue(commands.indexOf('devtest.testnet') === 1)
 				assert.isTrue(commands.indexOf('sayHi') === 2)
+
+				// Assert code
+				assert.isTrue(!!res.blocks && !!res.blocks[0] && !!res.blocks[0].text)
+
 			}catch (e) {
 				return Promise.reject(e)
 			}
 		})
 	})
-	// PubSub Test Disabled due taking too long, cuz of NEAR request need to stub it
-	// describe('/near call devtest.testnet sayHi-> PubSub', () => {
-	// 	before(() => {
-	// 			sinon.stub(global, 'sendDataToResponseURL')
-	// 	});
-	//
-	// 	after(() => {
-	// 		global.sendDataToResponseURL.restore()
-	// 	});
-	//
-	// 	it('should return success', async () => {
-	// 		try {
-	// 			const messageObject = {
-	// 				payload: payload,
-	// 				commands: commands
-	// 			};
-	// 			console.log('\nResponse messageObject', messageObject)
-	// 			console.log('Response messageObject\n')
-	//
-	// 			let res = await myFunctions.slackCallContractFlow.run(messageObject, {})
-	// 			console.log('slackCallContractFlow res', res)
-	// 			if (res.text)
-	// 				return Promise.resolve(res.text)
-	// 			else
-	// 				throw res
-	//
-	// 		} catch (e) {
-	// 			console.error('slackCallContractFlow err', e)
-	// 			return Promise.reject(e)
-	// 		}
-	// 	});
-	// })
+
+	describe('/near call devtest.testnet sayHi -> PubSub', () => {
+		it('returns function call result', async () => {
+			try {
+				const messageObject = {
+					payload: { ...payload, mock_near_request: true },
+					commands: commands
+				};
+
+				let res = await myFunctions.slackCallContractFlow.run(messageObject, {})
+				console.log('slackCallContractFlow res', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('sayHi():') !== -1))
+			} catch (e) {
+				console.error('slackCallContractFlow err', e)
+				return Promise.reject(e)
+			}
+		});
+	})
 
 	describe('/near call devtest.testnet sayHi {"test_params": "adsasd"} 3', () => {
-		it('should return result from sayHi', async () => {
+		it('returns "Contract calls with deposit require your signature"', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions,
 					'slackHook', 'call devtest.testnet sayHi {"test_params": "adsasd"} 3',
@@ -202,8 +187,9 @@ describe('Slack Cloud Functions', () => {
 				)
 
 				// Assert code
-				console.warn('Response slackHook call with deposit', res)
-				console.log('Response /near send maix.testnet maix2.testnet', res.attachments[0]?.actions[0]?.url)
+				console.log('Response slackHook call with deposit', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('Contract calls with deposit require your signature') !== -1
+					&& res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 
 			}catch (e) {
 				return Promise.reject(e)
@@ -212,7 +198,7 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near call devtest.testnet whoSaidHi {"test_params2": "adsasd"} 2', () => {
-		it('should return result from sayHi', async () => {
+		it('returns "Contract calls with deposit require your signature"', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions,
 					'slackHook', 'call devtest.testnet whoSaidHi {"test_params2": "adsasd"} 2',
@@ -220,8 +206,9 @@ describe('Slack Cloud Functions', () => {
 				)
 
 				// Assert code
-				console.warn('Response slackHook call with deposit', res)
-				console.log('Response /near call devtest.testnet whoSaidHi {"test_params2": "adsasd"} 2', res.attachments[0]?.actions[0]?.url)
+				console.log('Response slackHook call View-Method whoSaidHi with deposit', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('Contract calls with deposit require your signature') !== -1
+					&& res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 
 			}catch (e) {
 				return Promise.reject(e)
@@ -230,7 +217,7 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near view devtest.testnet whoSaidHi', () => {
-		it('should return result from whoSaidHi', async () => {
+		it('returns result from whoSaidHi', async () => {
 			try {
 					let res = await testHTTPFunction(myFunctions, 'slackHook', 'view devtest.testnet whoSaidHi')
 					console.log('Response /near view devtest.testnet whoSaidHi', res)
@@ -242,7 +229,7 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near balance', () => {
-		it('returns slack response object with amount', async () => {
+		it('returns current NEAR wallet balance', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'balance')
 				console.log('Response /near balance', res)
@@ -254,7 +241,7 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near contract devtest.testnet', () => {
-		it('returns slack response object', async () => {
+		it('returns a dropdown menu with the contract\'s methods', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract devtest.testnet')
 				console.log('Response /near contract devtest.testnet', res)
@@ -269,7 +256,7 @@ describe('Slack Cloud Functions', () => {
 		it('returns `No Contract deployed`', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract dan2.testnet')
-				// console.warn('Response /near contract dan2.testnet', res)
+				// console.log('Response /near contract dan2.testnet', res)
 				assert.isTrue(!!(res.text && res.text.indexOf(`doesn't have a contract deployed`) !== -1))
 			} catch (e) {
 				return Promise.reject(e)
@@ -293,7 +280,7 @@ describe('Slack Cloud Functions', () => {
 		it('returns some text and a link to sign the transaction', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'send maix2.testnet 1')
-				// console.warn('Response /near send maix2.testnet', res)
+				// console.log('Response /near send maix2.testnet', res)
 				// console.log('Response /near send maix.testnet maix2.testnet', res.attachments[0]?.actions[0]?.url)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 				assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))
@@ -304,19 +291,98 @@ describe('Slack Cloud Functions', () => {
 	})
 
 	describe('/near transactions', () => {
-		it('returns log of all transaction for a user', async () => {
+		it('returns a list of user transactions', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'transactions')
-				console.log('Response /near transactions', res);
-				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
-				assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))
+				console.log('Response /near transactions: ', res?.rows?.length);
+				// assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+				// assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))
 			} catch (e) {
 				return Promise.reject(e)
 			}
 		});
 	})
-})
 
+	describe('/near logout', () => {
+		it('returns "Logged out"', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'logout')
+				console.log('/near logout', res)
+				assert.isTrue(!!(res.text && res.text.indexOf('Logged out NEAR Account: dan2.testnet') !== -1))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+
+	describe('/near delete personal data', () => {
+		it('returns WARNING and Confirm Button', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data')
+				console.log('/near delete personal data', res)
+				assert.isTrue(!!(
+					res.text
+					&& res.text.indexOf('WARNING!') !== -1
+					&& res.attachments && res.attachments[0]
+					&& res.attachments[0].actions
+					&& res.attachments[0].actions.length
+				))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+	describe('/near delete personal data check', () => {
+		it('returns LAST WARNING! and Confirm Button', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data check')
+				console.log('/near delete personal data check', res)
+				assert.isTrue(!!(
+					res.text
+					&& res.text.indexOf('LAST WARNING!') !== -1
+					&& res.attachments && res.attachments[0]
+					&& res.attachments[0].actions
+					&& res.attachments[0].actions.length
+				))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+	describe('/near delete personal data check force', () => {
+		it('returns "Sorry to see you go"', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data force')
+				console.log('/near delete personal data force', res)
+				assert.isTrue(!!(
+					res.text
+					&& res.text.indexOf('Sorry to see you go') !== -1
+				))
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+	// describe('Deleting Test DB User', () => {
+	// 	it('Success', async () => {
+	// 		try {
+	// 			let res = await testHTTPFunction(myFunctions, 'healthDB', '',
+	// 				{ query: { delete_test_user: true }})
+	// 			console.log('Testing DB access health res: ', res)
+	// 			assert.isTrue(!!(
+	// 				// res.write
+	// 				// && res.doc.exists
+	// 				// && res.deletion
+	// 				res.deletion
+	// 				// && !res.deleted_doc.exists
+	// 			))
+	// 		}catch (e) {
+	// 			return Promise.reject(e)
+	// 		}
+	// 	})
+	// })
+
+})
 
 // function importTest(name, path) {
 // 	describe(name, function () {
@@ -324,7 +390,23 @@ describe('Slack Cloud Functions', () => {
 // 	});
 // }
 
-function testHTTPFunction(myFunctions, function_name, params, manual_request = {}, manual_response = {}) {
+const slackHookData = {
+	user_name: 'procc.main_test',
+	command: '/near',
+	team_domain: 'proccmaingmai-tc79872',
+	token: 'gh18PaaAfvc2I0W7SJzcPOkY',
+	channel_id: 'D02RZHPUWHF',
+	trigger_id: '2898159688640.2726521633969.939b92e730bde0c5050b4d579d3bf99d',
+	channel_name: 'directmessage',
+	api_app_id: 'A02RLUK9PFV',
+	is_enterprise_install: false,
+	user_id: 'U02MPHH5FC0',
+	text: 'help',
+	team_id: 'T02MCFBJMUH',
+	response_url: 'https://hooks.slack.com/commands/T02MCFBJMUH/2867751902902/UGlFPuHJFzqWb9w3tSjvfFQU'
+}
+
+function testHTTPFunction(myFunctions, function_name, commands, manual_request = {}, manual_response = {}) {
 	return new Promise((resolve, reject) => {
 		try {
 			let current_timestamp = String(Math.round(Date.now()/1000))
@@ -357,7 +439,7 @@ function testHTTPFunction(myFunctions, function_name, params, manual_request = {
 				},
 				body: {// Sample Slack request body
 					...slackHookData,
-					text: params
+					text: commands
 				},
 				...manual_request
 			};

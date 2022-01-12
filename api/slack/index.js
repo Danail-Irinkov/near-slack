@@ -493,7 +493,12 @@ module.exports = function (db, functions) {
 					deposit: commands[4],
 				})
 			fl.log('SLACK call options', options)
-			let result = await near.scheduleFunctionCall(options)
+			let result
+			if (payload.mock_near_request)
+				result = 'This Function Call Result is Mocked'
+			else
+				result = await near.scheduleFunctionCall(options)
+
 			fl.log('SLACK call result2', result)
 			return {
 				text: commands[2]+'(): ' + stringifyResponse(result)
@@ -958,7 +963,7 @@ module.exports = function (db, functions) {
 		try {
 			const accountId = commands[1];
 			const options = near.getConnectOptions(
-				null, 
+				null,
 				near.getNetworkFromAccount(accountId),
 				{accountId}
 			);
