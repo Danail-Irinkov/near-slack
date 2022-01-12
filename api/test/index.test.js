@@ -303,17 +303,17 @@ describe('Slack Slash Commands Tests', () => {
 		});
 	})
 
-	describe('/near logout', () => {
-		it('returns "Logged out"', async () => {
-			try {
-				let res = await testHTTPFunction(myFunctions, 'slackHook', 'logout')
-				console.log('/near logout', res)
-				assert.isTrue(!!(res.text && res.text.indexOf('Logged out NEAR Account: dan2.testnet') !== -1))
-			}catch (e) {
-				return Promise.reject(e)
-			}
-		})
-	})
+	// describe('/near logout', () => {
+	// 	it('returns "Logged out"', async () => {
+	// 		try {
+	// 			let res = await testHTTPFunction(myFunctions, 'slackHook', 'logout')
+	// 			console.log('/near logout', res)
+	// 			assert.isTrue(!!(res.text && res.text.indexOf('Logged out NEAR Account: dan2.testnet') !== -1))
+	// 		}catch (e) {
+	// 			return Promise.reject(e)
+	// 		}
+	// 	})
+	// })
 
 	describe('/near delete personal data', () => {
 		it('returns WARNING and Confirm Button', async () => {
@@ -349,20 +349,20 @@ describe('Slack Slash Commands Tests', () => {
 			}
 		})
 	})
-	describe('/near delete personal data check force', () => {
-		it('returns "Sorry to see you go"', async () => {
-			try {
-				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data force')
-				console.log('/near delete personal data force', res)
-				assert.isTrue(!!(
-					res.text
-					&& res.text.indexOf('Sorry to see you go') !== -1
-				))
-			}catch (e) {
-				return Promise.reject(e)
-			}
-		})
-	})
+	// describe('/near delete personal data check force', () => {
+	// 	it('returns "Sorry to see you go"', async () => {
+	// 		try {
+	// 			let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data force')
+	// 			console.log('/near delete personal data force', res)
+	// 			assert.isTrue(!!(
+	// 				res.text
+	// 				&& res.text.indexOf('Sorry to see you go') !== -1
+	// 			))
+	// 		}catch (e) {
+	// 			return Promise.reject(e)
+	// 		}
+	// 	})
+	// })
 	// describe('Deleting Test DB User', () => {
 	// 	it('Success', async () => {
 	// 		try {
