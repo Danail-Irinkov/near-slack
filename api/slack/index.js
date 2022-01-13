@@ -152,7 +152,7 @@ module.exports = function (db, functions) {
 			// console.log('login user', user)
 
 			if(user.near_account && (!commands[1] || commands[1] === user.near_account) && user.near_fn_key && !!'TODO: FN key is active') {
-				return { text: 'Login Successful' }
+				return { text: 'Logged in as: ' + user.near_account }
 			} else {
 				// TODO: Introduce an env variable to determine routing
 				// DEPRECATED LOGIN VIA FRONTEND

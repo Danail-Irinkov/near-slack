@@ -55,61 +55,6 @@ exports.healthDB = functions.https.onRequest(async (req, res) => {
 });
 
 
-exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
-	console.log('loginPubSub Start')
-	// console.warn('loginPubSub Start', message)
-	if (!(message.payload && message.commands))
-		return 'loginPubSub Bad Input'
-
-	// const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
-	// console.log('loginPubSub data', data)
-	const payload = message.payload
-	const commands = message.commands
-	// console.warn('loginPubSub payload', payload)
-	// console.warn('loginPubSub commands', commands)
-
-	try {
-		let login_data = await slack.login(payload, commands)
-		// console.warn('loginPubSub login_data', login_data)
-		// fl.log('slack.login Success Start', login_data)
-
-		if(payload.mock_near_request)
-			return login_data
-		else
-			return await sendDataToResponseURL(payload.response_url, login_data)
-	} catch (e) {
-		fl.log('loginPubSub err: '+JSON.stringify(e))
-		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + e.message })
-		return Promise.reject(e)
-	}
-})
-
-exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').onPublish(async (message) => {
-	// fl.log('slackCallContractFlow PubSub Start')
-	// console.log('slackCallContractFlow Start', message)
-
-	if (!(message.payload && message.commands))
-		return 'slackCallContractFlow Bad Input'
-
-	// console.log('slackCallContractFlow data', data)
-	const payload = message.payload
-	const commands = message.commands
-	fl.log('slackCallContractFlow payload', payload)
-	fl.log('slackCallContractFlow commands', commands)
-
-	try {
-		let call_res = await slack.call(payload, commands)
-		fl.log('slackCallContractFlow after Call', call_res)
-
-		await sendDataToResponseURL(payload.response_url, call_res)
-		return call_res
-	} catch (e) {
-		fl.log(e);
-		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + stringifyResponse(e) })
-		return Promise.reject(e)
-	}
-})
-
 exports.installSlackNear = functions.https.onRequest(async (req, res) => {
 	const url = await slack.installer.generateInstallUrl({
 		scopes: ['channels:read', 'groups:read', 'channels:manage', 'chat:write', 'incoming-webhook'],
@@ -147,14 +92,67 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 	}
 });
 
+exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
+	console.log('loginPubSub Start')
+	fl.log('loginPubSub Start', message)
+	let data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+
+	// const data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+	// console.log('loginPubSub data', data)
+	const payload = data.payload
+	const commands = data.commands
+	// console.warn('loginPubSub payload', payload)
+	// console.warn('loginPubSub commands', commands)
+
+	try {
+		let login_data = await slack.login(payload, commands)
+		// console.warn('loginPubSub login_data', login_data)
+		// fl.log('slack.login Success Start', login_data)
+
+		if(payload.mock_near_request)
+			return login_data
+		else
+			return await sendDataToResponseURL(payload.response_url, login_data)
+	} catch (e) {
+		fl.log('loginPubSub err: '+JSON.stringify(e))
+		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + e.message })
+		return Promise.reject(e)
+	}
+})
+
+exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').onPublish(async (message) => {
+	// fl.log('slackCallContractFlow PubSub Start')
+	fl.log('slackCallContractFlow Start', message)
+
+	let data = JSON.parse(Buffer.from(message.data, 'base64').toString())
+
+	// console.log('slackCallContractFlow data', data)
+	const payload = data.payload
+	const commands = data.commands
+	fl.log('slackCallContractFlow payload', payload)
+	fl.log('slackCallContractFlow commands', commands)
+
+	try {
+		let call_res = await slack.call(payload, commands)
+		fl.log('slackCallContractFlow after Call', call_res)
+
+		await sendDataToResponseURL(payload.response_url, call_res)
+		return call_res
+	} catch (e) {
+		fl.log(e);
+		await sendDataToResponseURL(payload.response_url, { text: 'NEAR Error: ' + stringifyResponse(e) })
+		return Promise.reject(e)
+	}
+})
+
 exports.nearSignTransactionCallback = functions.https.onRequest(async (req, res) => {
 	fl.log("req.params:", req.params);
 	fl.log("req.query:", req.query);
 	fl.log("req.body:", req.body);
 
 	let context
-	if (req.query.meta)
-		context = JSON.parse(req.query.meta)
+	if (req.query.signMeta)
+		context = JSON.parse(req.query.signMeta)
 
 	let slack_redirect_url // URL to redirect the user directly to Slack App
 	if (context.team_domain && context.channel_id)

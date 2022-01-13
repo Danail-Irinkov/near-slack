@@ -109,10 +109,11 @@ describe('Slack Slash Commands Tests', () => {
 					payload: { ...payload, mock_near_request: true },
 					commands: commands
 				};
+				const data = Buffer.from(JSON.stringify(messageObject), 'utf8');
 
-				let res = await myFunctions.loginPubSub.run(messageObject, {})
+				let res = await myFunctions.loginPubSub.run({data}, {})
 				console.log('loginPubSub res', res)
-				assert.isTrue(!!(res.text && res.text.indexOf('Login Successful') !== -1))
+				assert.isTrue(!!(res.text && res.text.indexOf('Logged in as:') !== -1))
 			} catch (e) {
 				console.error('loginPubSub err', e)
 				return Promise.reject(e)
@@ -168,7 +169,9 @@ describe('Slack Slash Commands Tests', () => {
 					commands: commands
 				};
 
-				let res = await myFunctions.slackCallContractFlow.run(messageObject, {})
+				const data = Buffer.from(JSON.stringify(messageObject), 'utf8');
+
+				let res = await myFunctions.slackCallContractFlow.run({data}, {})
 				console.log('slackCallContractFlow res', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('sayHi():') !== -1))
 			} catch (e) {
