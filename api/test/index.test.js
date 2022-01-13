@@ -295,6 +295,12 @@ describe('Slack Slash Commands Tests', () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'transactions')
 				console.log('Response /near transactions: ', res?.rows?.length);
+				// console.log(res.rows);
+				for (let i = 0; i < res.rows.length; i++) {
+					if (res.rows[i].args.method_name == 'whoSaidHi') {
+						console.log(res.rows[i]);
+					}
+				}
 				// assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 				// assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))
 			} catch (e) {

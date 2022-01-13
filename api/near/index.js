@@ -436,9 +436,14 @@ async function transactionsCommand(options) {
 	const pg = require('../pgDB');
 	const query = options.networkId === 'testnet' ? pg.queryTestnet : pg.queryMainnet;
 	const res = query(
+// prefer using spaces not tabs
 `\
-SELECT block_timestamp, signer_account_id, receiver_account_id \
+SELECT converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id, action_kind, args, data \
 FROM transactions \
+LEFT JOIN transaction_actions \
+ON transactions.transaction_hash = transaction_actions.transaction_hash \
+RIGHT JOIN data_receipts \
+ON transactions.converted_into_receipt_id = data_receipts.receipt_id \
 WHERE signer_account_id = $1 OR receiver_account_id = $1 \
 `,
 		[options.accountId]
