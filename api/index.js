@@ -146,9 +146,9 @@ exports.slackCallContractFlow = functions.pubsub.topic('slackCallContractFlow').
 })
 
 exports.nearSignTransactionCallback = functions.https.onRequest(async (req, res) => {
-	fl.log("req.params:", req.params);
-	fl.log("req.query:", req.query);
-	fl.log("req.body:", req.body);
+	// fl.log("req.params:", req.params);
+	fl.log("nearSignTransactionCallback req.query:", req.query);
+	// fl.log("req.body:", req.body);
 
 	let context
 	if (req.query.signMeta)
@@ -159,19 +159,36 @@ exports.nearSignTransactionCallback = functions.https.onRequest(async (req, res)
 		slack_redirect_url = `https://${context.team_domain}.slack.com/archives/${context.channel_id}`
 
 	try {
+		let response
 		if (context && context.response_url) {
 			if (context.methodName) {
 				// TODO: Fetch functionCall result from blockchain rpc
-				// let transaction = await near.queryTransactionHash(req.query.transactionHashes, context.accountId)
-				await sendDataToResponseURL(context.response_url, { text: `Function Call to ${context.methodName}@${context.receiverId} Succeeded`})
+				let transaction = await near.queryTransactionHash(req.query.transactionHashes, context.accountId)
+				let logs = transaction.receipts_outcome[0].outcome.logs
+				let return_value = Buffer.from(transaction.receipts_outcome[0].outcome.status.SuccessValue, 'base64').toString()
+				console.log("transaction logs: ", logs);
+				console.log("transaction return_value: ", return_value);
+
+				response = { text: `Function Call to ${context.methodName}@${context.receiverId} Succeeded`}
+				if(logs && logs.length) {
+					for (let log of logs) {
+						if (log.length > 0 && log.length < 32)
+							response.text += `\n Logs: ${log}`
+					}
+				}
+				if(return_value) response.text += `\n Result: ${return_value}`
 			}else //This is a simple transaction
-				await sendDataToResponseURL(context.response_url, { text: `Transaction to ${context.receiverId} was successful (${context.amount}N)`})
+				response = { text: `Transaction to ${context.receiverId} was successful (${context.amount}N)`}
 		}
 
-		// TODO: Maybe record to DB successful transaction... maybe not
+		if(response)
+			sendDataToResponseURL(context.response_url, response)
 
 		let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function`
 		res.header("Location", slack_redirect_url || frontend_success).send(302);
+
+		console.log("transaction response: ", response);
+		return response
 	} catch (e) {
 		fl.error(e)
 
@@ -212,76 +229,9 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		// fl.log('payload.token', payload.token);
 
 		if (commands[0] && commands[0] === 'test') {
-			return res.send({
-				response_type: 'ephemeral',
-				blocks: [
-					{
-						type: 'section',
-						text: {
-							type: 'mrkdwn',
-							text: 'Do you want to add arguments and/or deposit?'
-						}
-					},
-					{
-						type: 'input',
-						block_id: 'call_arguments',
-						element: {
-							type: 'plain_text_input',
-							action_id: "plain_input_arguments",
-							placeholder: {
-								type: "plain_text",
-								text: '{"argument1": "value1", ...}'
-							}
-						},
-						label: {
-							type: 'plain_text',
-							text: 'Arguments (JSON)',
-							emoji: false
-						}
-					},
-					{
-						type: 'input',
-						block_id: 'call_deposit',
-						element: {
-							type: 'plain_text_input',
-							action_id: "plain_input_deposit",
-							placeholder: {
-								type: "plain_text",
-								text: '0'
-							}
-						},
-						label: {
-							type: 'plain_text',
-							text: 'Deposit',
-							emoji: false
-						}
-					},
-					{
-						type: 'actions',
-						elements: [
-							{
-								type: 'button',
-								text: {
-									type: 'plain_text',
-									emoji: true,
-									text: 'Add'
-								},
-								style: 'primary',
-								value: 'call devtest.testnet sayHi add'
-							},
-							{
-								type: 'button',
-								text: {
-									type: 'plain_text',
-									emoji: true,
-									text: 'Skip'
-								},
-								value: 'call devtest.testnet sayHi skip'
-							}
-						]
-					}
-				]
-			})
+			let url = 'https://wallet.testnet.near.org/login/?success_url=https%3A%2F%2Fus-central1-near-api-1d073%2ecloudfunctions%2enet%2FnearLoginRedirect%2F%3Fslack_username%3Dprocc%2emain%26channel_id%3DC02LWTCUU93%26team_domain%3Dproccmaingmai-tc79872%26response_url%3Dhttps%3A%2F%2Fhooks%2eslack%2ecom%2Factions%2FT02MCFBJMUH%2F2946145801462%2FW4Vv3Hnwlrw0XnCGhNRQkrRt%26redirect%3DfunctionKey&context=testString&contract_id=dan2.testnet&public_key=ed25519:As4umurSTn79ZpNNxgnarBYhqtbC3LQXHWSJ1tQqNU42&referer=slack.com'
+			return 		res.header("referer", 'NEAR Slack').header("Location", url).send(302);
+
 		}
 		let response = `Hello from NEAR-Slack.\nI don't know '${commands[0]}', try /near help`
 		switch (commands[0]) {
@@ -385,7 +335,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				fl.log('before slack.call payload.response_url', payload.response_url)
 
 				if (!commands[3]) {
-					response = slack.getCallInterractiveInput(payload, commands)
+					response = slack.getCallInteractiveInput(payload, commands)
 				} else if (commands[3] === 'cancel') {
 					response = { delete_original: true }
 				} else if (commands[4] && Number(commands[4]) > 0) {
@@ -464,10 +414,13 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			if (req.add_payload_and_commands)
 				response = {...response, payload, commands}
 
-			if(payload.state && payload.response_url) {
+			if(payload.response_url) {
 				fl.log('slackHook response state: ', response)
 				sendDataToResponseURL(payload.response_url, response)
-				res.send({ delete_original: true })
+				if (process.env.IS_TEST)
+					res.send(response)
+				else
+					res.send()
 			} else {
 				fl.log('slackHook response: ', response)
 				res.send(response)
@@ -643,6 +596,7 @@ function validateNEARAccount(account) {
 global.validateNEARAccount = validateNEARAccount
 
 function sendDataToResponseURL(response_url, data) {
+	if (process.env.IS_TEST) return 'Axios Call Mocked'
 	return axios.post(response_url, data,
 		{
 			headers: {
@@ -723,12 +677,17 @@ function parseSlackPayload(req) {
 	if(payload.payload) {
 		payload2 = JSON.parse(payload.payload);
 		// fl.log('slackHook payload.callback_id', payload2.callback_id);
+		payload = {...payload2}
 
 		if(payload2.user) { //In case of coming from Interactive buttons username is located in a different place ...
-			payload = {...payload2}
-			// fl.log('slackHook 2payload: ', payload);
 			payload.user_name = payload2.user.name;
-			// fl.log('slackHook payload.user_name', payload.user_name);
+		}
+		if(payload2.container) { //In case of coming from Interactive buttons username is located in a different place ...
+			payload.channel_id = payload2.container.channel_id;
+		}
+		if(payload2.team) { //In case of coming from Interactive buttons username is located in a different place ...
+			payload.team_domain = payload2.team.domain;
+			payload.team_id = payload2.team.id;
 		}
 	}
 	return payload

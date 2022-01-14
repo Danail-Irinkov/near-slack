@@ -17,6 +17,7 @@ const functions = require('firebase-functions');
 const chai = require('chai');// Chai is a commonly used library for creating unit test suites. It is easily extended with plugins.
 const assert = chai.assert;
 const sinon = require('sinon'); // Sinon is a library used for mocking or verifying function calls in JavaScript.
+process.env.IS_TEST = 'true'
 
 describe('Slack Slash Commands Tests', () => {
 	let myFunctions
@@ -181,7 +182,7 @@ describe('Slack Slash Commands Tests', () => {
 		});
 	})
 
-	describe('/near call devtest.testnet sayHi {"test_params": "adsasd"} 3', () => {
+	describe('/near call devtest.testnet sayHi {"test_params": "with_deposit"} 3', () => {
 		it('returns "Contract calls with deposit require your signature"', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions,
@@ -193,6 +194,39 @@ describe('Slack Slash Commands Tests', () => {
 				console.log('Response slackHook call with deposit', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Contract calls with deposit require your signature') !== -1
 					&& res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
+
+			}catch (e) {
+				return Promise.reject(e)
+			}
+		})
+	})
+
+	describe('/near call callback after signing -> nearSignTransactionCallback', () => {
+		it('returns Transaction Success', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions,
+					'nearSignTransactionCallback', '',
+					{
+						add_payload_and_commands: false,
+						query: {
+							// transactionHashes:"BoN6DoSDfvtkh8WS9LBKjvVXYJUHRE5K4ddvrwruuj9y",
+							transactionHashes:"8vwSdP6QU4iMijRpA2Z8KSBNnJnEav3dFAcTsYArCjxd",
+							signMeta: JSON.stringify({
+								slack_username: 'procc.main',
+								response_url:'https://hooks.slack.com/actions/T02MCFBJMUH/2951143467954/6pDnvOQEgtFG9kUIYJb0270i',
+								accountId:'danail.testnet',
+								receiverId:'devtest.testnet',
+								methodName:'sayHi',
+								amount:'2'
+							})
+						}
+					}
+				)
+
+				// Assert code
+				console.log('Response nearSignTransactionCallback call with deposit', res)
+				// assert.isTrue(!!(res.text && res.text.indexOf('Contract calls with deposit require your signature') !== -1
+				// 	&& res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 
 			}catch (e) {
 				return Promise.reject(e)
@@ -454,6 +488,7 @@ function testHTTPFunction(myFunctions, function_name, commands, manual_request =
 			};
 			// A fake response object, with a stubbed redirect function which does some assertions
 			const res = {
+				header: (a, b) => { return { send: (s)=>{} }},
 				set: (a, b) => {},
 				end: () => {},
 				send: (res) => {
@@ -462,7 +497,7 @@ function testHTTPFunction(myFunctions, function_name, commands, manual_request =
 				...manual_response
 			};
 
-			myFunctions[function_name](req, res);
+			myFunctions[function_name](req, res).then((res = null) => {if(res) resolve(res)});
 		} catch (e) {
 			console.warn('testHTTPFunction err: ', e)
 			reject(e)

@@ -99,7 +99,7 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 		let login_url = options.walletUrl + '/login/'
 		login_url +='?success_url='+encodeURIComponentForFirebase(redirect_url)
 		// login_url +='&failure_url='+redirect_url
-		login_url +='&context=testString'
+
 		if (contract_name) {
 			let userDoc = db.collection('users').doc(createUserDocId(payload.user_name))
 			const accessKey = KeyPair.fromRandom('ed25519')
@@ -235,15 +235,15 @@ async function callViewFunction(options) {
 }
 async function queryTransactionHash (txHash, accountId) {
 	try {
-		fl.log("queryTransactionHash Start: ", {txHash, accountId});
+		// fl.log("queryTransactionHash Start: ", {txHash, accountId});
 		let network = getNetworkFromAccount(accountId)
 		const provider = new providers.JsonRpcProvider(
-			`https://archival-rpc.${network}.near.org`
+			{ url: `https://archival-rpc.${network}.near.org`}
 		);
 
 		const result = await provider.txStatus(txHash, accountId);
-		fl.log("transaction Result: ", result);
-		fl.log("transaction Result.transaction: ", result.transaction);
+		// console.log("transaction Result: ", result.receipts_outcome[0].outcome);
+		// console.log("transaction Result.transaction: ", result.transaction);
 		return result
 	} catch (e) {
 		return Promise.reject(e)

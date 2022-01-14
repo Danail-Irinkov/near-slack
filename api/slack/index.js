@@ -259,18 +259,18 @@ module.exports = function (db, functions) {
 							]
 						}
 					]
-				};
+				}
 			}
 			return response
 		} catch (e) {
 			console.log('slack-cli send err: ', e)
 			return Promise.reject(e)
 		}
-
 	}
-	function getCallInterractiveInput(payload, commands) {
+	function getCallInteractiveInput(payload, commands) {
 		return {
 			response_type: 'ephemeral',
+			replace_original: true,
 			blocks: [
 				{
 					type: 'section',
@@ -406,6 +406,7 @@ module.exports = function (db, functions) {
 					amount: commands[4]
 				}
 				const url = await near.generateSignTransactionURL(options, transaction, response_context)
+				fl.log('functionCallWithDeposit url: ', url)
 				response = {
 					text: 'Contract calls with deposit require your signature',
 					response_type: 'ephemeral',
@@ -558,7 +559,7 @@ module.exports = function (db, functions) {
 				})
 			if (contract && contract.methodNames) {
 				console.log('contract', contract)
-				let methods = contract.methodNames
+				let methods = removeDuplicatedMethods(contract.methodNames)
 				let probableInterfaces = contract.probableInterfaces
 				console.log('contract methods', methods)
 
@@ -1002,7 +1003,7 @@ module.exports = function (db, functions) {
 		create,
 		login,
 		send,
-		getCallInterractiveInput,
+		getCallInteractiveInput,
 		notLoggedInResponse,
 		functionCallWithDeposit,
 		view,
@@ -1059,4 +1060,15 @@ async function handleMissingContractFCKey(payload, user, commands) {
 			}
 		]
 	}
+}
+function removeDuplicatedMethods(methods) { //For some reason Contract parser returns each method twice, I am removing the snake case ones
+	let filtered_methods = []
+
+	for (let method of methods) {
+		let snake_case_method = method.replace(/[A-Z]/g, (letter, index) => { return index === 0 ? letter.toLowerCase() : '_'+ letter.toLowerCase();});
+		let camel_case_method = method.toLowerCase().replace(/[-_][a-z]/g, (group) => group.slice(-1).toUpperCase());
+		if (!filtered_methods.includes(method) && !filtered_methods.includes(snake_case_method) && !filtered_methods.includes(camel_case_method))
+			filtered_methods.push(method)
+	}
+	return filtered_methods
 }
