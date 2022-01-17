@@ -970,9 +970,9 @@ module.exports = function (db, functions) {
 				near.getNetworkFromAccount(accountId),
 				{accountId, offset}
 			);
-			console.time('transactionsCommand')
-			const response = await near.transactionsCommand(options);
-			console.timeEnd('transactionsCommand')
+			console.time('queryTransactions')
+			const response = await near.queryTransactions(options);
+			console.timeEnd('queryTransactions')
 
 			// {signer_account_id, receiver_account_id, action_kind, args}
 			const actions_kinds_to_response = {
@@ -981,7 +981,7 @@ module.exports = function (db, functions) {
 				"DELETE_ACCOUNT": (row) => `TODO`,
 				"DELETE_KEY": (row) => `TODO`,
 				"DEPLOY_CONTRACT": (row) => `Contract deployed: ${row.receiver_account_id}`,
-				"FUNCTION_CALL": (row) => `Called method: ${row.args.method_name} in contract: ${row.receiver_account_id}${ Number(row.args.deposit) > 0 ? `, Deposit ${utils.format.formatNearAmount(row.args.deposit)}N` : ''}`,
+				"FUNCTION_CALL": (row) => `Called method: ${row.args.method_name}@${row.receiver_account_id}${ Number(row.args.deposit) > 0 ? `, Deposit ${utils.format.formatNearAmount(row.args.deposit)}N` : ''}`,
 				"STAKE": (row) => `TODO`,
 				"TRANSFER": (row) => `Transferred ${utils.format.formatNearAmount(row.args.deposit)}N to: ${row.receiver_account_id}`,
 			};
@@ -996,7 +996,8 @@ module.exports = function (db, functions) {
 
 			for (const row of response.rows) {
 				const action_kind = row.action_kind;
-				const text = actions_kinds_to_response[action_kind](row);
+				let date = new Date(row.block_timestamp/1000000).toLocaleDateString("en-UK", { day: '2-digit', month: '2-digit', year: '2-digit' })
+				const text = `[${date}] ` + actions_kinds_to_response[action_kind](row);
 				blocks.push({
 					type: 'section',
 					text: {
@@ -1023,7 +1024,7 @@ module.exports = function (db, functions) {
 						text: {
 							type: 'plain_text',
 							emoji: true,
-							text: '⬅ Back'
+							text: '◀ Back'
 						},
 						value: `transactions ${accountId} ${offset - 5}`
 					},
@@ -1034,7 +1035,7 @@ module.exports = function (db, functions) {
 				text: {
 					type: 'plain_text',
 					emoji: true,
-					text: 'Load More...'
+					text: 'Next ▶'
 				},
 				value: `transactions ${accountId} ${offset + 5}`
 			}
