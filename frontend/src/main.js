@@ -2,6 +2,7 @@ import 'virtual:windi.css'
 import * as Vue  from 'vue'
 import router from './router'
 import App from './App.vue'
+import { createHead } from '@egoist/vue-head'
 import { initializeApp } from 'firebase/app'
 import { getFirestore } from "firebase/firestore"
 import { Buffer } from 'buffer'
@@ -11,7 +12,9 @@ if (window) {
 }
 
 const app = Vue.createApp(App)
+const head = createHead()
 
+app.use(head)
 const firebaseConfig = {
 	apiKey: "AIzaSyCL0TqPIAx-HOb12mWeS7iP_uB-RMYfm1w",
 	authDomain: "near-api-1d073.firebaseapp.com",
