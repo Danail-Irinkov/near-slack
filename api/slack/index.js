@@ -3,6 +3,7 @@ const { createHmac } = require('crypto');
 const tsscmp = require('tsscmp');
 const { getAuth } = require('firebase-admin/auth');
 const near = require('../near');
+const {utils} = require('near-api-js')
 
 module.exports = function (db, functions) {
 	// initialize the installProvider
@@ -963,12 +964,15 @@ module.exports = function (db, functions) {
 	async function transactions (payload, commands) {
 		try {
 			const accountId = commands[1];
+			const offset = Number(commands[2]) || 0;
 			const options = near.getConnectOptions(
 				null,
 				near.getNetworkFromAccount(accountId),
-				{accountId}
+				{accountId, offset}
 			);
+			console.time('transactionsCommand')
 			const response = await near.transactionsCommand(options);
+			console.timeEnd('transactionsCommand')
 
 			// {signer_account_id, receiver_account_id, action_kind, args}
 			const actions_kinds_to_response = {
@@ -977,45 +981,82 @@ module.exports = function (db, functions) {
 				"DELETE_ACCOUNT": (row) => `TODO`,
 				"DELETE_KEY": (row) => `TODO`,
 				"DEPLOY_CONTRACT": (row) => `Contract deployed: ${row.receiver_account_id}`,
-				"FUNCTION_CALL": (row) => `Called method: ${row.args.method_name} in contract: ${row.receiver_account_id}`,
+				"FUNCTION_CALL": (row) => `Called method: ${row.args.method_name} in contract: ${row.receiver_account_id}${ Number(row.args.deposit) > 0 ? `, Deposit ${utils.format.formatNearAmount(row.args.deposit)}N` : ''}`,
 				"STAKE": (row) => `TODO`,
-				"TRANSFER": (row) => `Transfered ${row.args.deposit} to: ${row.receiver_account_id}`,
+				"TRANSFER": (row) => `Transferred ${utils.format.formatNearAmount(row.args.deposit)}N to: ${row.receiver_account_id}`,
 			};
 
-			const create_block = (text, hash) => {
-				return {
-					"type": "section",
-					"text": {
-						"text": text,
-						"type": "mrkdwn"
-					},
-					"accessory": {
-						"type": "button",
-						"text": {
-							"type": "plain_text",
-							"emoji": true,
-							"text": "Details"
-						},
-						"url": `https://explorer.testnet.near.org/transactions/${hash}`
-					}
+			let blocks = [{
+				type: 'header',
+				text: {
+					text: `Transactions: ${offset} to ${offset + 5}`,
+					type: 'plain_text'
 				}
-			};
+			}];
 
-			let blocks = [];
 			for (const row of response.rows) {
 				const action_kind = row.action_kind;
 				const text = actions_kinds_to_response[action_kind](row);
-				const block = create_block(text, row.transaction_hash);
-				blocks.push(block);
+				blocks.push({
+					type: 'section',
+					text: {
+						text: text,
+						type: 'mrkdwn'
+					},
+					accessory: {
+						type: 'button',
+						text: {
+							type: 'plain_text',
+							emoji: true,
+							text: 'Details'
+						},
+						url: `https://explorer.testnet.near.org/transactions/${row.transaction_hash}`
+					}
+				});
 			}
 
+			let pagination = {
+				type: 'actions',
+				elements: [
+					{
+						type: 'button',
+						text: {
+							type: 'plain_text',
+							emoji: true,
+							text: '⬅ Back'
+						},
+						value: `transactions ${accountId} ${offset - 5}`
+					},
+				]
+			}
+			let next_btn = {
+				type: 'button',
+				text: {
+					type: 'plain_text',
+					emoji: true,
+					text: 'Load More...'
+				},
+				value: `transactions ${accountId} ${offset + 5}`
+			}
+
+			if (offset <5) {
+				pagination.elements = [next_btn]
+			} else {
+				pagination.elements.push(next_btn)
+			}
+
+			blocks.push(pagination)
 			// const blocks = response.rows.map((row) => {
 			// 	const action_response_text = actions_kinds_to_response[row.action_kind];
 			// 	if (!action_response_text) throw new Error(`Unknown action_kind: ${row.action_kind}`);
 			// 	return create_block(action_response_text(row), row.transaction_hash);
 			// });
 
-			return { blocks };
+			return {
+				response_type: 'ephemeral',
+				replace_original: true,
+				blocks
+			};
 		} catch (e) {
 			console.log('slack-cli keys err: ', e)
 			return Promise.reject(e)

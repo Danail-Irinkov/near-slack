@@ -12,6 +12,7 @@ const config = require('./config')
 const open = require('open')
 const getConfig = require('../near/config')
 const {transfer, createTransaction, functionCall} = require('near-api-js/lib/transaction');
+const pg = require('../pgDB');
 // const inspectResponse = require('./utils/inspect-response')
 
 // let login_url = 'asd2'
@@ -433,21 +434,20 @@ async function login(options) {
 }
 
 async function transactionsCommand(options) {
-	const pg = require('../pgDB');
 	const query = options.networkId === 'testnet' ? pg.queryTestnet : pg.queryMainnet;
-	const res = query(
-// prefer using spaces not tabs
-`\
-SELECT transactions.transaction_hash, converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id, action_kind, args \
-FROM transactions \
-LEFT JOIN transaction_actions \
-ON transactions.transaction_hash = transaction_actions.transaction_hash \
-WHERE signer_account_id = $1 OR receiver_account_id = $1 \
-ORDER BY block_timestamp DESC \
-`,
-		[options.accountId]
+	return query(`
+		SELECT transactions.transaction_hash, converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id, action_kind, args 
+		FROM (
+			SELECT transactions.transaction_hash, converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id 
+			FROM transactions
+			WHERE signer_account_id = $1 OR receiver_account_id = $1
+			ORDER BY block_timestamp DESC 
+			LIMIT 5 OFFSET $2
+		) as transactions
+		LEFT JOIN transaction_actions 
+		ON transactions.transaction_hash = transaction_actions.transaction_hash`,
+		[options.accountId, options.offset]
 	);
-	return res;
 }
 
 function handleExceededThePrepaidGasError(error, options) {

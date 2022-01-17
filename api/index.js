@@ -213,19 +213,12 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		if (process.env.NODE_ENV === 'production' && !slack.validateRequest(req))
 			return res.send('Request Authentication Error')
 
-		fl.log('slackHook req', req.body)
+		// fl.log('slackHook req', req.body)
 		let payload = parseSlackPayload(req)
 		fl.log('slackHook payload', payload)
 		let commands = await parseSlackCommands(payload)
 		fl.log('slackHook commands', commands)
 
-		if(payload.state) {
-			fl.log('slackHook2 payload.state.values.call_deposit.value', payload.state.values.call_deposit.plain_input_deposit.value);
-			fl.log('slackHook2 payload.state.values.call_arguments.value', payload.state.values.call_arguments.plain_input_arguments.value);
-		}
-		if(payload.actions) {
-			fl.log('slackHook payload.actions[0].value', payload.actions[0].value);
-		}
 		// fl.log('payload.token', payload.token);
 
 		if (commands[0] && commands[0] === 'test') {
@@ -388,6 +381,9 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					commands.push(accountId)
 					response = await slack.transactions(payload, commands);
 
+				} else	if (validateNEARAccount(commands[1])) {
+					response = await slack.transactions(payload, commands);
+					// TODO: add validation for offset command
 				} else {
 					response = 'Improper syntax.\nPlease check /near help transactions'
 				}
