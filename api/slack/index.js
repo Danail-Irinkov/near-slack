@@ -979,7 +979,7 @@ module.exports = function (db, functions) {
 				"DEPLOY_CONTRACT": (row) => `Contract deployed: ${row.receiver_account_id}`,
 				"FUNCTION_CALL": (row) => `Called method: ${row.args.method_name} in contract: ${row.receiver_account_id}`,
 				"STAKE": (row) => `TODO`,
-				"TRANSFER": (row) => `Transfered ${row.args.amount} to: ${row.receiver_account_id}`,
+				"TRANSFER": (row) => `Transfered ${row.args.deposit} to: ${row.receiver_account_id}`,
 			};
 
 			const create_block = (text, hash) => {
@@ -1005,7 +1005,7 @@ module.exports = function (db, functions) {
 			for (const row of response.rows) {
 				const action_kind = row.action_kind;
 				const text = actions_kinds_to_response[action_kind](row);
-				const block = create_block(text, row.hash);
+				const block = create_block(text, row.transaction_hash);
 				blocks.push(block);
 			}
 
