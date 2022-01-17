@@ -80,7 +80,7 @@ function encodeURIComponentForFirebase(str) {
 }
 async function generateWalletLoginURL(redirect = 'login', payload = null, near_account, contract_name = null, method_names = []) {
 	try {
-		console.log('generateWalletLoginURL Start', payload.user_name, near_account)
+		// console.log('generateWalletLoginURL Start', payload.user_name, near_account)
 		let options = getConnectOptions(null,
 			getNetworkFromAccount(near_account),
 			{
@@ -94,7 +94,7 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 		if (payload.response_url) redirect_url+= `&response_url=${payload.response_url}`
 		if (payload.text) redirect_url+= `&text=${payload.text}`
 		if (redirect) redirect_url+= `&redirect=${redirect}`
-		console.log('generateWalletLoginURL requestSignIn Start', redirect_url)
+		// console.log('generateWalletLoginURL requestSignIn Start', redirect_url)
 
 		// const currentUrl = new URL(window.location.href);
 		let login_url = options.walletUrl + '/login/'
@@ -116,8 +116,8 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 				['near.'+near_acc_key+'.contracts'+'.'+contract_key+'.contract_name']: contract_name,
 				['near.'+near_acc_key+'.contracts'+'.'+contract_key+'.status']: 'pending',
 			})
-			console.log('generateWalletLoginURL public_key: ' + public_key)
-			console.log('generateWalletLoginURL privateKey: ' + private_key)
+			// console.log('generateWalletLoginURL public_key: ' + public_key)
+			// console.log('generateWalletLoginURL privateKey: ' + private_key)
 
 			login_url +='&contract_id='+contract_name
 			login_url +='&public_key='+accessKey.getPublicKey().toString()
@@ -129,10 +129,10 @@ async function generateWalletLoginURL(redirect = 'login', payload = null, near_a
 			});
 		}
 
-		console.log('generateWalletLoginURL login_url: '+login_url)
+		// console.log('generateWalletLoginURL login_url: '+login_url)
 		return login_url
 	}catch (e) {
-		console.log('generateWalletLoginURL Err: '+e)
+		fl.log('generateWalletLoginURL Err: '+e)
 		return Promise.reject(e)
 	}
 }
@@ -173,7 +173,7 @@ async function keys(options) {
 	let near = await connect(options);
 	let account = await near.account(options.accountId);
 	let accessKeys = await account.getAccessKeys();
-	console.log(`Keys for account ${options.accountId}`, accessKeys);
+	// console.log(`Keys for account ${options.accountId}`, accessKeys);
 	return accessKeys
 };
 
@@ -334,7 +334,7 @@ async function deploy(options) {
 		let codeHash = state.code_hash;
 		// await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: true, code_hash: codeHash, is_same_contract: prevCodeHash === codeHash, contract_id: options.accountId }, options);
 		// eventtracking.trackDeployedContract();
-		console.log(`Done deploying ${options.initFunction ? 'and initializing' : 'to'} ${options.accountId}`);
+		// console.log(`Done deploying ${options.initFunction ? 'and initializing' : 'to'} ${options.accountId}`);
 	}
 };
 // TODO: Rework near-cli login to work with our backend and skip frontend Connection step
@@ -350,7 +350,7 @@ async function login(options) {
 		const keyPair = await KeyPair.fromRandom('ed25519');
 		newUrl.searchParams.set('public_key', keyPair.getPublicKey());
 
-		console.log(`\n{bold.yellow Please authorize NEAR CLI} on at least one of your accounts.`);
+		// console.log(`\n{bold.yellow Please authorize NEAR CLI} on at least one of your accounts.`);
 
 		// attempt to capture accountId automatically via browser callback
 		let tempUrl;
@@ -450,10 +450,6 @@ async function queryTransactions(options) {
 	);
 }
 
-function handleExceededThePrepaidGasError(error, options) {
-	console.log(`\nTransaction ${error.transaction_outcome.id} had ${options.gas} of attached gas but used ${error.transaction_outcome.outcome.gas_burnt} of gas`);
-	console.log('View this transaction in explorer:', `https://explorer.${options.networkId}.near.org/transactions/${error.transaction_outcome.id}`);
-}
 // open a given URL in browser in a safe way.
 async function openUrl(url) {
 	try {

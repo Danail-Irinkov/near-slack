@@ -98,7 +98,7 @@ module.exports = function (db, functions) {
 			console.timeEnd('validateRequest')
 			return bool
 		} catch (e) {
-			console.log('slack-cli validateRequest err: ', e)
+			fl.log('slack-cli validateRequest err: ', e)
 			console.timeEnd('validateRequest')
 			return Promise.reject(e)
 		}
@@ -131,7 +131,7 @@ module.exports = function (db, functions) {
 				]
 			}
 		} catch (e) {
-			console.log('slack-cli keys err: ', e)
+			fl.log('slack-cli keys err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -264,7 +264,7 @@ module.exports = function (db, functions) {
 			}
 			return response
 		} catch (e) {
-			console.log('slack-cli send err: ', e)
+			fl.log('slack-cli send err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -430,7 +430,7 @@ module.exports = function (db, functions) {
 			}
 			return response
 		} catch (e) {
-			console.log('functionCallWithDeposit err: ', e)
+			fl.log('functionCallWithDeposit err: ', e)
 			return Promise.reject(e)
 		}
 
@@ -450,17 +450,10 @@ module.exports = function (db, functions) {
 					args: commands[3],
 				})
 			let result = await near.callViewFunction(options)
-			console.log('SLACK view result', result)
 			return commands[2]+'(): ' + stringifyResponse(result)
 		} catch (e) {
 			fl.log('slack-cli view err1: ', e)
-			console.log('slack-cli view err1: ', e.method_name)
-			console.log('slack-cli view err2: ', e.error)
-			console.log('slack-cli view err3: ', e.block_hash)
-			// if (e.error.method_name && e.error.method_name === 'signer_account_id')
-				return Promise.reject('You are most probably calling a Contract Change method with view, try /near call')
-			// else
-			// 	return Promise.reject(e)
+			return Promise.reject('You are most probably calling a Contract Change method with view, try /near call')
 		}
 
 	}
@@ -522,7 +515,7 @@ module.exports = function (db, functions) {
 
 			return commands[1]+': ' + stringifyResponse(result)
 		} catch (e) {
-			console.log('slack-cli account err: ', e)
+			fl.log('slack-cli account err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -538,7 +531,7 @@ module.exports = function (db, functions) {
 
 			return commands[1]+': ' + stringifyResponse(result)
 		} catch (e) {
-			console.log('slack-cli balance err: ', e)
+			fl.log('slack-cli balance err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -550,7 +543,6 @@ module.exports = function (db, functions) {
 				{
 					accountId: commands[1]
 				})
-			console.log('contract before viewContract')
 			let contract = await near.viewContract(options)
 				.catch((e) => {
 					if(e.toString().indexOf('has never been observed on the node') !== -1) {
@@ -559,10 +551,8 @@ module.exports = function (db, functions) {
 						return Promise.reject(e)
 				})
 			if (contract && contract.methodNames) {
-				console.log('contract', contract)
 				let methods = removeDuplicatedMethods(contract.methodNames)
 				let probableInterfaces = contract.probableInterfaces
-				console.log('contract methods', methods)
 
 				let text = `Contract methods for ${commands[1]}:\n`
 				if (probableInterfaces && probableInterfaces.length)
@@ -1050,7 +1040,7 @@ module.exports = function (db, functions) {
 						text: {
 							type: 'plain_text',
 							emoji: true,
-							text: '◀ Back'
+							text: '🡨  Back'
 						},
 						value: `transactions ${accountId} ${offset - 5}`
 					},
@@ -1061,7 +1051,7 @@ module.exports = function (db, functions) {
 				text: {
 					type: 'plain_text',
 					emoji: true,
-					text: 'Next ▶'
+					text: 'Next  🡪'
 				},
 				value: `transactions ${accountId} ${offset + 5}`
 			}
@@ -1136,7 +1126,6 @@ module.exports = function (db, functions) {
 }
 
 async function createUser(payload, near_account, db) {
-	console.log('createUser', near_account)
 	const fb_token = await getAuth().createCustomToken(createUserDocId(payload.user_name))
 	return db.collection('users').doc(createUserDocId(payload.user_name)).set({
 		near_account: near_account,

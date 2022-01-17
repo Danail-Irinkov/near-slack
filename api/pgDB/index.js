@@ -8,18 +8,18 @@ const pool_testnet = new Pool({connectionString: 'postgres://public_readonly:nea
 const pool_mainnet = new Pool({connectionString: 'postgres://public_readonly:nearprotocol@mainnet.db.explorer.indexer.near.dev/mainnet_explorer'})
 
 async function query(text, params, pool) {
-	const start = Date.now()
+	// const start = Date.now()
 	const res = await pool.query(text, params)
-	const duration = Date.now() - start
-	console.log('executed query', { text, duration, rows: res.rowCount })
+	// const duration = Date.now() - start
+	// console.log('executed query', { text, duration, rows: res.rowCount })
 	return res
 }
 
 module.exports = {
 	/**
 	 * THIS IS A READ-ONLY DATABASE
-	 * 
-	 * Example text and params: 
+	 *
+	 * Example text and params:
 	 * ```
 	 * const text = 'SELECT * FROM user WHERE id = $1'
 	 * const params = [1]

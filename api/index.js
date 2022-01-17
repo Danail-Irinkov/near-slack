@@ -60,7 +60,6 @@ exports.installSlackNear = functions.https.onRequest(async (req, res) => {
 		scopes: ['channels:read', 'groups:read', 'channels:manage', 'chat:write', 'incoming-webhook'],
 		metadata: 'some_metadata',
 	})
-	console.log('slackInstallUrl', url)
 	res.header("Location", url).send(302);
 });
 
@@ -93,7 +92,6 @@ exports.slackOauth = functions.https.onRequest(async (req, res) => {
 });
 
 exports.loginPubSub = functions.pubsub.topic('slackLoginFlow').onPublish(async (message) => {
-	console.log('loginPubSub Start')
 	fl.log('loginPubSub Start', message)
 	let data = JSON.parse(Buffer.from(message.data, 'base64').toString())
 
@@ -166,8 +164,6 @@ exports.nearSignTransactionCallback = functions.https.onRequest(async (req, res)
 				let transaction = await near.queryTransactionHash(req.query.transactionHashes, context.accountId)
 				let logs = transaction.receipts_outcome[0].outcome.logs
 				let return_value = Buffer.from(transaction.receipts_outcome[0].outcome.status.SuccessValue, 'base64').toString()
-				console.log("transaction logs: ", logs);
-				console.log("transaction return_value: ", return_value);
 
 				response = { text: `Function Call to ${context.methodName}@${context.receiverId} Succeeded`}
 				if(logs && logs.length) {
@@ -187,7 +183,6 @@ exports.nearSignTransactionCallback = functions.https.onRequest(async (req, res)
 		let frontend_success = `https://${process.env.GCLOUD_PROJECT}.web.app/redirection?status=success&key=function`
 		res.header("Location", slack_redirect_url || frontend_success).send(302);
 
-		console.log("transaction response: ", response);
 		return response
 	} catch (e) {
 		fl.error(e)
@@ -224,7 +219,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		if (commands[0] && commands[0] === 'test') {
 			let url = 'https://wallet.testnet.near.org/login/?success_url=https%3A%2F%2Fus-central1-near-api-1d073%2ecloudfunctions%2enet%2FnearLoginRedirect%2F%3Fslack_username%3Dprocc%2emain%26channel_id%3DC02LWTCUU93%26team_domain%3Dproccmaingmai-tc79872%26response_url%3Dhttps%3A%2F%2Fhooks%2eslack%2ecom%2Factions%2FT02MCFBJMUH%2F2946145801462%2FW4Vv3Hnwlrw0XnCGhNRQkrRt%26redirect%3DfunctionKey&context=testString&contract_id=dan2.testnet&public_key=ed25519:As4umurSTn79ZpNNxgnarBYhqtbC3LQXHWSJ1tQqNU42&referer=slack.com'
 			return 		res.header("referer", 'NEAR Slack').header("Location", url).send(302);
-
 		}
 		let response = `Hello from NEAR-Slack.\nI don't know '${commands[0]}', try /near help`
 		switch (commands[0]) {
@@ -236,7 +230,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					response = 'Invalid NEAR Account'
 					break
 				}
-				console.log('before slack.login')
 
 				// Needed to workaround Slack timeout limit (using PubSUb)
 				// Maximum execution time for slack hook is 2.5sec, this login takes 4-5sec, so delaying the response
@@ -270,7 +263,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				}
 				break
 			case 'account':
-				console.log('before slack.account')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					const current_account = await getCurrentNearAccountFromSlackUsername(payload.user_name)
 					commands.push(current_account)
@@ -282,7 +274,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				response = await slack.account(payload, commands)
 				break
 			case 'balance':
-				console.log('before slack.balance')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
@@ -293,7 +284,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				response = await slack.balance(payload, commands)
 				break
 			case 'contract':
-				console.log('before slack.contract')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
@@ -304,7 +294,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				response = await slack.contract(payload, commands)
 				break
 			case 'keys':
-				console.log('before slack.keys')
 				if (!commands[1]) { // account missing, Getting logged in account for slack user
 					commands.push(await getCurrentNearAccountFromSlackUsername(payload.user_name))
 				} else if (!validateNEARAccount(commands[1])) {
@@ -324,7 +313,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					break
 				}
 
-				console.log('before slack.call')
 				fl.log('before slack.call payload.response_url', payload.response_url)
 
 				if (!commands[3]) {
@@ -357,7 +345,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					response = 'Missing View Method Name'
 					break
 				}
-				console.log('before slack.view')
 				response = await slack.view(payload, commands)
 				break
 			case 'send':
@@ -371,9 +358,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 					break
 				}
 
-				console.log('before slack.send')
 				response = await slack.send(payload, commands)
-				console.log('after slack.send')
 				break
 			case 'transactions':
 				if (commands.length === 1) {
@@ -389,7 +374,6 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				}
 				break;
 			case 'help':
-				console.log('before slack.help')
 				response = await slack.help(payload, commands)
 				break
 
@@ -553,12 +537,12 @@ const testUserDbSnapshot = {
 
 async function setupTestDBUser(req, res) {
 	try {
-		console.log("setupTestDBUser Start: ", req?.query);
+		// console.log("setupTestDBUser Start: ", req?.query);
 		let write, deletion, doc
 		if (req?.query?.add_test_user) {
 			const docRef = db.collection('users').doc('procc1_1main_test');
 			write = await docRef.set(testUserDbSnapshot);
-			console.log("setupTestDBUser write: ", write);
+			// console.log("setupTestDBUser write: ", write);
 		}
 		if (req?.query?.get_test_user) {
 			doc = await db.collection('users').doc('procc1_1main_test').get();
@@ -584,7 +568,7 @@ async function setupTestDBUser(req, res) {
 function validateNEARAccount(account) {
 	// TODO: after the dot we should check for either testnet or mainnet
 
-	console.log('before validateNEARAccount')
+	// console.log('before validateNEARAccount')
 	return /[a-z0-9]*\.(near|testnet)/.test(account)
 }
 global.validateNEARAccount = validateNEARAccount

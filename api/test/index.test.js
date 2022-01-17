@@ -51,7 +51,6 @@ describe('Slack Slash Commands Tests', () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'healthDB', '',
 					{ query: { add_test_user: true }})
-				console.log('Testing DB access health res: ', res)
 				assert.isTrue(!!(
 					res.write
 					// && res.doc.exists
@@ -69,7 +68,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns a button redirecting to NEAR wallet create', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'create')
-				console.log('/near create', res)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 			}catch (e) {
 				return Promise.reject(e)
@@ -113,7 +111,6 @@ describe('Slack Slash Commands Tests', () => {
 				const data = Buffer.from(JSON.stringify(messageObject), 'utf8');
 
 				let res = await myFunctions.loginPubSub.run({data}, {})
-				console.log('loginPubSub res', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Logged in as:') !== -1))
 			} catch (e) {
 				console.error('loginPubSub err', e)
@@ -126,7 +123,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns "Initializing account"', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'login other_account.testnet')
-				console.log('/near login other_account.testnet', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Initializing account') !== -1))
 			}catch (e) {
 				return Promise.reject(e)
@@ -138,7 +134,6 @@ describe('Slack Slash Commands Tests', () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook',
 					'call devtest.testnet sayHi', {add_payload_and_commands: true})
-				console.log('/near call devtest.testnet sayHi', res)
 				// extract payload and commands
 				payload = {...res.payload}
 				commands = [...res.commands]
@@ -173,7 +168,6 @@ describe('Slack Slash Commands Tests', () => {
 				const data = Buffer.from(JSON.stringify(messageObject), 'utf8');
 
 				let res = await myFunctions.slackCallContractFlow.run({data}, {})
-				console.log('slackCallContractFlow res', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('sayHi():') !== -1))
 			} catch (e) {
 				console.error('slackCallContractFlow err', e)
@@ -191,7 +185,6 @@ describe('Slack Slash Commands Tests', () => {
 				)
 
 				// Assert code
-				console.log('Response slackHook call with deposit', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Contract calls with deposit require your signature') !== -1
 					&& res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 
@@ -243,7 +236,6 @@ describe('Slack Slash Commands Tests', () => {
 				)
 
 				// Assert code
-				console.log('Response slackHook call View-Method whoSaidHi with deposit', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Contract calls with deposit require your signature') !== -1
 					&& res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 
@@ -257,7 +249,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns result from whoSaidHi', async () => {
 			try {
 					let res = await testHTTPFunction(myFunctions, 'slackHook', 'view devtest.testnet whoSaidHi')
-					console.log('Response /near view devtest.testnet whoSaidHi', res)
 					assert.isTrue(!!res.text && res.text.indexOf('whoSaidHi') !== -1)
 			} catch (e) {
 				return Promise.reject(e)
@@ -269,7 +260,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns current NEAR wallet balance', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'balance')
-				console.log('Response /near balance', res)
 				assert.isTrue(!!res.text)
 			} catch (e) {
 				return Promise.reject(e)
@@ -281,7 +271,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns a dropdown menu with the contract\'s methods', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract devtest.testnet')
-				console.log('Response /near contract devtest.testnet', res)
 				assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
 			} catch (e) {
 				return Promise.reject(e)
@@ -305,7 +294,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns `Account Does Not Exist`', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'contract devtest_fake.testnet')
-				console.log('Response /near contract devtest_fake.testnet', res)
 				assert.isTrue(!!(res.text && res.text.indexOf('Account Does Not Exist') !== -1))
 			} catch (e) {
 				return Promise.reject(e)
@@ -331,15 +319,7 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns a list of user transactions', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'transactions')
-				console.log('Response /near transactions: ', res?.rows?.length);
-				console.log(res);
-				for (let i = 0; i < res.rows.length; i++) {
-					if (res.rows[i].args.method_name == 'whoSaidHi') {
-						console.log(res.rows[i]);
-					}
-				}
-				// assert.isTrue(!!(res.text && res.attachments && res.attachments[0] && res.attachments[0].actions && res.attachments[0].actions.length))
-				// assert.isTrue(!!(res.attachments[0]?.actions[0]?.url))
+				assert.isTrue(!!(res?.blocks[0]))
 			} catch (e) {
 				return Promise.reject(e)
 			}
@@ -362,7 +342,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns WARNING and Confirm Button', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data')
-				console.log('/near delete personal data', res)
 				assert.isTrue(!!(
 					res.text
 					&& res.text.indexOf('WARNING!') !== -1
@@ -379,7 +358,6 @@ describe('Slack Slash Commands Tests', () => {
 		it('returns LAST WARNING! and Confirm Button', async () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'delete personal data check')
-				console.log('/near delete personal data check', res)
 				assert.isTrue(!!(
 					res.text
 					&& res.text.indexOf('LAST WARNING!') !== -1
