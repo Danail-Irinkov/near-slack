@@ -680,6 +680,10 @@ module.exports = function (db, functions) {
 									value: 'help balance'
 								},
 								{
+									text: 'Transactions',
+									value: 'help transactions'
+								},
+								{
 									text: 'Keys',
 									value: 'help keys'
 								},
@@ -837,6 +841,28 @@ module.exports = function (db, functions) {
 							text: 'Current Account',
 							name: 'balance',
 							value: 'balance'
+						}
+					]
+				})
+				break
+			case 'transactions':
+				help.text = 'Displays the transactions of a NEAR account\n' +
+					'/near transactions {?account} {?offset}\n' +
+					'Offset: The amount of transactions to skip\n'
+					'Note: Your logged in account will be shown, if no account is provided\n'
+
+				help.attachments.push({
+					color: '#4fcae0',
+					attachment_type: 'default',
+					callback_id: 'transactions_from_help',
+					fallback: '/near transactions',
+					actions: [
+						{
+							type: 'button',
+							style: 'primary',
+							text: 'Current Account',
+							name: 'transactions',
+							value: 'transactions'
 						}
 					]
 				})
