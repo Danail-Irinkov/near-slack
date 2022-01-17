@@ -968,7 +968,54 @@ module.exports = function (db, functions) {
 				near.getNetworkFromAccount(accountId),
 				{accountId}
 			);
-			return await near.transactionsCommand(options);
+			const response = await near.transactionsCommand(options);
+
+			// {signer_account_id, receiver_account_id, action_kind, args}
+			const actions_kinds_to_response = {
+				"ADD_KEY": (row) => `New key added for ${row.receiver_account_id}`,
+				"CREATE_ACCOUNT": (row) => `New account created: ${row.receiver_account_id}`,
+				"DELETE_ACCOUNT": (row) => `TODO`,
+				"DELETE_KEY": (row) => `TODO`,
+				"DEPLOY_CONTRACT": (row) => `Contract deployed: ${row.receiver_account_id}`,
+				"FUNCTION_CALL": (row) => `Called method: ${row.args.method_name} in contract: ${row.receiver_account_id}`,
+				"STAKE": (row) => `TODO`,
+				"TRANSFER": (row) => `Transfered ${row.args.amount} to: ${row.receiver_account_id}`,
+			};
+
+			const create_block = (text, hash) => {
+				return {
+					"type": "section",
+					"text": {
+						"text": text,
+						"type": "mrkdwn"
+					},
+					"accessory": {
+						"type": "button",
+						"text": {
+							"type": "plain_text",
+							"emoji": true,
+							"text": "Details"
+						},
+						"url": `https://explorer.testnet.near.org/transactions/${hash}`
+					}
+				}
+			};
+
+			let blocks = [];
+			for (const row of response.rows) {
+				const action_kind = row.action_kind;
+				const text = actions_kinds_to_response[action_kind](row);
+				const block = create_block(text, row.hash);
+				blocks.push(block);
+			}
+
+			// const blocks = response.rows.map((row) => {
+			// 	const action_response_text = actions_kinds_to_response[row.action_kind];
+			// 	if (!action_response_text) throw new Error(`Unknown action_kind: ${row.action_kind}`);
+			// 	return create_block(action_response_text(row), row.transaction_hash);
+			// });
+
+			return { blocks };
 		} catch (e) {
 			console.log('slack-cli keys err: ', e)
 			return Promise.reject(e)

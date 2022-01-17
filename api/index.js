@@ -384,12 +384,10 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 				break
 			case 'transactions':
 				if (commands.length === 1) {
-					console.log("__________________________________________________________________________________");
-					console.log("payload.user_name", payload.user_name);
 					const accountId = await getCurrentNearAccountFromSlackUsername(payload.user_name);
-					console.log("accountId", accountId);
 					commands.push(accountId)
 					response = await slack.transactions(payload, commands);
+
 				} else {
 					response = 'Improper syntax.\nPlease check /near help transactions'
 				}

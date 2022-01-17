@@ -332,7 +332,7 @@ describe('Slack Slash Commands Tests', () => {
 			try {
 				let res = await testHTTPFunction(myFunctions, 'slackHook', 'transactions')
 				console.log('Response /near transactions: ', res?.rows?.length);
-				// console.log(res.rows);
+				console.log(res);
 				for (let i = 0; i < res.rows.length; i++) {
 					if (res.rows[i].args.method_name == 'whoSaidHi') {
 						console.log(res.rows[i]);

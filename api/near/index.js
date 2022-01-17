@@ -438,13 +438,12 @@ async function transactionsCommand(options) {
 	const res = query(
 // prefer using spaces not tabs
 `\
-SELECT converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id, action_kind, args, data \
+SELECT transactions.transaction_hash, converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id, action_kind, args \
 FROM transactions \
 LEFT JOIN transaction_actions \
 ON transactions.transaction_hash = transaction_actions.transaction_hash \
-RIGHT JOIN data_receipts \
-ON transactions.converted_into_receipt_id = data_receipts.receipt_id \
 WHERE signer_account_id = $1 OR receiver_account_id = $1 \
+ORDER BY block_timestamp DESC \
 `,
 		[options.accountId]
 	);
