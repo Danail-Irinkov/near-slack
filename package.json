@@ -16,6 +16,7 @@
     "apied": "cd api && firebase functions:config:get > .runtimeconfig.json && firebase --debug emulators:start --only functions"
   },
   "dependencies": {
+    "@egoist/vue-head": "^0.1.8",
     "@firebase/firestore": "^3.4.1",
     "axios": "^0.24.0",
     "buffer": "^6.0.3",
