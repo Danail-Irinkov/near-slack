@@ -14,7 +14,7 @@
 	</p>
 	
 	<a class="mx-auto my-8 py-2 px-4"
-		 href="https://slack.com/oauth/v2/authorize?client_id=2726521633969.2870971329539&scope=commands,chat:write,chat:write.public&user_scope=">
+		 href="https://us-central1-near-api-1d073.cloudfunctions.net/installSlackNear">
 		<img class="inline-block" alt="Add to Slack" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcSet="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" />
 	</a>
 	

@@ -1,34 +1,11 @@
 const { connect: nearConnect, utils, providers, keyStores, KeyPair, transactions} = require('near-api-js')
 const { parseContract } = require('near-contract-parser');
-// const chalk = require('chalk')
-// const inspectResponse = require('./utils/inspect-response')
-// const checkCredentials = require('./utils/check-credentials')
-// const eventtracking = require('./utils/eventtracking')
-// const capture = require('./utils/capture-login-success')
-// const readline = require('readline')
 const verify = require('./utils/verify-account')
 const fs = require('fs')
 const config = require('./config')
 const open = require('open')
-const getConfig = require('../near/config')
 const {transfer, createTransaction, functionCall} = require('near-api-js/lib/transaction');
 const pg = require('../pgDB');
-// const inspectResponse = require('./utils/inspect-response')
-
-// let login_url = 'asd2'
-// global.window = { //Mocking window object to capture the URL
-// 	localStorage: {
-// 		getItem: ()=>'{"allKeys":[]}',
-// 		setItem: ()=>'{"asd": "asd"}'
-// 	},
-// 	location: {
-// 		href: '',
-// 		assign: (url)=>{
-// 			console.log('location.assign URL: ', url)
-// 			login_url=url
-// 		}
-// 	}
-// }
 
 async function connect(options) {
 	// TODO: Avoid need to wrap in deps

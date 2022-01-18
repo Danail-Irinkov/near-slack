@@ -1,5 +1,3 @@
-const { getXApiKey } = require('./utils/x-api-key-settings.js');
-
 const CONTRACT_NAME = process.env.CONTRACT_NAME;
 
 function getConfig(env) {

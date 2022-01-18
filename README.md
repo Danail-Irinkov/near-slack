@@ -1,8 +1,20 @@
 # near-slack
 ##Integration of NEAR protocol with Slack
-With this integration Slack users are able to access most features of the NEAR Protocol
+The first Slack Integration, 
+that allows Slack users to directly monitor and control the NEAR Protocol.\
 
-### Demo
+After you install the app in your Slack workspace, 
+you will be able to access it with Slash command:&nbsp;&nbsp; **/near**\
+
+Available commands:\
+login, contract, send, view, call, account, balance, transactions, ...\
+for more details use **/near help**
+
+### Install In Slack
+[Install NEAR-Slack](https://us-central1-near-api-1d073.cloudfunctions.net/installSlackNear)
+
+### Demo Video
+[![Watch the video](https://i.imgur.com/vKb2F1B.png)](https://youtu.be/vt5fpE0bzSY)
 
 ### NEAR features:
 * Create Account
@@ -87,36 +99,67 @@ https://github.com/googleapis/nodejs-pubsub
     * This forced the use of Google PubSub functions, which run in the background and are a bit tricky to use
    
 # Project Structure
+Most requests from Slack are processed by\
+  ➔  api/index.js/slackHook - Analyses the payload from Slack and executes the requested commands.\
+  ➔  api/index.js/installSlackNear - Handles NEAR-Slack installation into Slack Workspace.\
+  ➔  api/index.js/slackOauth - Handles Slack Oauth redirect\
+    ...
+
+
+.\
+├── api\
+│   ├── index.js            &nbsp;&nbsp;➔&nbsp;&nbsp;Main Backend File, Firebase Functions Hooks\
+│   ├── slack               &nbsp;&nbsp;➔&nbsp;&nbsp;Slack Helper, generates Slack Responses\
+│   ├── near                &nbsp;&nbsp;➔&nbsp;&nbsp;NEAR Helper, Executes NEAR Protocol Calls\
+│   │   ├── config.js       &nbsp;&nbsp;➔&nbsp;&nbsp;Generates NEAR connect options\
+│   │   └── utils           &nbsp;&nbsp;➔&nbsp;&nbsp;Random NEAR utils from near-sdk-js\
+│   └── pgDB                &nbsp;&nbsp;➔&nbsp;&nbsp;PostgreSQL connection to NEAR Indexer\
+│   \
+├── frontend                &nbsp;&nbsp;➔&nbsp;&nbsp;Deprecated Fallback for Redirects\
+└── slack\
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── slack.yaml          &nbsp;&nbsp;➔&nbsp;&nbsp;api.slack.com/apps Config
+
+
 
 # Deployment
+## Notice: 
+Backend Tests and Emulators, 
+will NOT work if not properly configured 
+with a Firebase project under your control
+
 ## Install Dependencies
 ```
-yarn
+yarn       ➔ Installs Frontend Dependencies
+yarn apii  ➔ Installs Backend Dependencies
+```
+
+## Backend
+```
+yarn apie  ➔ Starts Functions Dev Emulator
 ```
 
 ## Frontend App
-Dev server
 ```
-yarn dev
-```
-
-Production server test
-```
-yarn serve
+yarn dev  ➔ Starts Dev Frontend
 ```
 
-Production build static files
 ```
-yarn build
+yarn serve  ➔ Production server test
 ```
 
-## Functions Emulator Workflow
 ```
-yarn apie
+yarn build  ➔ Production build static files
 ```
-Then test function with this URL in your browser/Postman
-http://localhost:5001/near-api-1d073/us-central1/helloWorld
-http://localhost:5001/near-api-1d073/us-central1/slackOauth?code=2726521633969.2873201781250.b6a168a805429b0f10c75ff73f85c748ac614dac3294e8c673f96627cf7c8287&state=
 
 ## Deployment
-npm install -g firebase-tools
+```
+yarn apid   ➔ Deploys Backend to Firebase Functions
+yarn buildd ➔ Deploys Frontend to Firebase Hosting
+```
+
+## Run tests 
+The fastest way to run your code during development
+```
+yarn test    ➔ Tests with hiddent logs
+yarn testdev ➔ Verbose
+```
