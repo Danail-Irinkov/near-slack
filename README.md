@@ -1,14 +1,20 @@
 # near-slack
 ##Integration of NEAR protocol with Slack
 The first Slack Integration, 
-that allows Slack users to directly monitor and control the NEAR Protocol.\
+that allows Slack users to directly monitor and control the NEAR Protocol.
 
-After you install the app in your Slack workspace, 
-you will be able to access it with Slash command:&nbsp;&nbsp; **/near**\
+After you install the app in your Slack workspace,  
+you will be able to access it with Slash command:  
+```
+/near {command}
+```  
 
-Available commands:\
-login, contract, send, view, call, account, balance, transactions, ...\
-for more details use **/near help**
+Available commands:  
+login, contract, send, view, call, account, balance, transactions, ...  
+for more details use
+```
+/near help {?command}
+```  
 
 ### Install In Slack
 [Install NEAR-Slack](https://us-central1-near-api-1d073.cloudfunctions.net/installSlackNear)
@@ -43,24 +49,47 @@ for more details use **/near help**
 * Vite
 
 ## Documentation References
-https://www.near.university/
-https://examples.near.org/
-https://docs.near.org/docs/api/javascript-library
-https://github.com/near/near-api-js
-https://github.com/encody/near-contract-parser
-https://github.com/near/near-indexer-for-explorer
-https://api.slack.com/interactivity/slash-commands
-https://api.slack.com/interactivity/components
-https://api.slack.com/block-kit
-https://slack.dev/node-slack-sdk/
-https://github.com/firebase/firebase-admin-node
-https://github.com/firebase/firebase-functions
-https://github.com/googleapis/nodejs-pubsub
+https://www.near.university  
+https://examples.near.org   
+https://docs.near.org/docs/api/javascript-library  
+https://github.com/near/near-api-js  
+https://github.com/encody/near-contract-parser  
+https://github.com/near/near-indexer-for-explorer  
+https://api.slack.com/interactivity/slash-commands  
+https://api.slack.com/interactivity/components  
+https://api.slack.com/block-kit  
+https://slack.dev/node-slack-sdk  
+https://github.com/firebase/firebase-admin-node  
+https://github.com/firebase/firebase-functions  
+https://github.com/googleapis/nodejs-pubsub  
+
+# Project Structure
+Most requests from Slack are processed by
+➔  api/index.js/slackHook - Analyses the payload from Slack and executes the requested commands.  
+➔  api/index.js/installSlackNear - Handles NEAR-Slack installation into Slack Workspace.  
+➔  api/index.js/slackOauth - Handles Slack Oauth redirect  
+...
+
+```
+.\
+├── api\
+│   ├── index.js              ➔  Main Backend File, Firebase Functions Hooks
+│   ├── slack                 ➔  Slack Helper, generates Slack Responses
+│   ├── near                  ➔  NEAR Helper, Executes NEAR Protocol Calls
+│   │   ├── config.js         ➔  Generates NEAR connect options
+│   │   └── utils             ➔  Random NEAR utils from near-sdk-js
+│   └── pgDB                  ➔  PostgreSQL connection to NEAR Indexer
+│   
+├── frontend                  ➔  Deprecated Fallback for Redirects
+└── slack
+    └── slack.yaml            ➔  api.slack.com/apps Config
+```
+
 
 ## Challenges and Solutions
 1. Security
     * Being non-Custodial - We avoided having NEAR Full Access keys on the system to eliminate most safety concerns. All transactions require the user to go through the official NEAR website.
-    * Authenticating incoming requests - ```validateRequest()``` - W**e are using the Slack Request hashes to make sure that the commands are coming from an authenticated Slack user
+    * Authenticating incoming requests - ```validateRequest()``` - We are using the Slack Request hashes to make sure that the commands are coming from an authenticated Slack user
 
 2. Executing NEAR Transactions and Change Methods, without having Full Access Keys in the App
     * There are a lot of redirects needed to accomplish the desired flow
@@ -97,29 +126,6 @@ https://github.com/googleapis/nodejs-pubsub
     * In these cases we have to respond to slack with status 200 and then use the response_url to send messages to the chat
     * However, in Firebase, once a response is sent, the function is marked for garbage collection, thus we cannot do any further computation
     * This forced the use of Google PubSub functions, which run in the background and are a bit tricky to use
-   
-# Project Structure
-Most requests from Slack are processed by\
-  ➔  api/index.js/slackHook - Analyses the payload from Slack and executes the requested commands.\
-  ➔  api/index.js/installSlackNear - Handles NEAR-Slack installation into Slack Workspace.\
-  ➔  api/index.js/slackOauth - Handles Slack Oauth redirect\
-    ...
-
-
-.\
-├── api\
-│   ├── index.js            &nbsp;&nbsp;➔&nbsp;&nbsp;Main Backend File, Firebase Functions Hooks\
-│   ├── slack               &nbsp;&nbsp;➔&nbsp;&nbsp;Slack Helper, generates Slack Responses\
-│   ├── near                &nbsp;&nbsp;➔&nbsp;&nbsp;NEAR Helper, Executes NEAR Protocol Calls\
-│   │   ├── config.js       &nbsp;&nbsp;➔&nbsp;&nbsp;Generates NEAR connect options\
-│   │   └── utils           &nbsp;&nbsp;➔&nbsp;&nbsp;Random NEAR utils from near-sdk-js\
-│   └── pgDB                &nbsp;&nbsp;➔&nbsp;&nbsp;PostgreSQL connection to NEAR Indexer\
-│   \
-├── frontend                &nbsp;&nbsp;➔&nbsp;&nbsp;Deprecated Fallback for Redirects\
-└── slack\
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└── slack.yaml          &nbsp;&nbsp;➔&nbsp;&nbsp;api.slack.com/apps Config
-
-
 
 # Deployment
 ## Notice: 
@@ -160,6 +166,6 @@ yarn buildd ➔ Deploys Frontend to Firebase Hosting
 ## Run tests 
 The fastest way to run your code during development
 ```
-yarn test    ➔ Tests with hiddent logs
+yarn test    ➔ Tests with hidden logs
 yarn testdev ➔ Verbose
 ```
