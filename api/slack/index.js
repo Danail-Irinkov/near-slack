@@ -990,7 +990,7 @@ module.exports = function (db, functions) {
 			const response = await near.queryTransactions(options);
 			console.timeEnd('queryTransactions')
 
-			// {signer_account_id, receiver_account_id, action_kind, args}
+			// {signer_account_id, r.eceiver_account_id, action_kind, args}
 			const actions_kinds_to_response = {
 				"ADD_KEY": (row) => `New key added for ${row.receiver_account_id}`,
 				"CREATE_ACCOUNT": (row) => `New account created: ${row.receiver_account_id}`,

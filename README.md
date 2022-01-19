@@ -20,7 +20,7 @@ for more details use
 [Install NEAR-Slack](https://us-central1-near-api-1d073.cloudfunctions.net/installSlackNear)
 
 ### Demo Video
-[![Watch the video](https://i.imgur.com/vKb2F1B.png)](https://youtu.be/vt5fpE0bzSY)
+[![Watch the video](https://i.imgur.com/AvI9gLG.jpg)](https://youtu.be/WkPLb2e2_ws)
 
 ### NEAR features:
 * Create Account
@@ -40,7 +40,7 @@ for more details use
 * App Installation Auth
 * Slack Request Auth
 
-## Tech Stack
+### Tech Stack
 * Firebase Functions
 * Firebase Hosting
 * Firebase Firestore
@@ -49,40 +49,50 @@ for more details use
 * Vite
 
 ## Documentation References
+#### NEAR
+https://wallet.near.org/ (Create your NEAR Wallet)  
 https://www.near.university  
 https://examples.near.org   
 https://docs.near.org/docs/api/javascript-library  
 https://github.com/near/near-api-js  
 https://github.com/encody/near-contract-parser  
-https://github.com/near/near-indexer-for-explorer  
+https://github.com/near/near-indexer-for-explorer
+
+#### Slack
+https://api.slack.com/apps (Create your Slack app)  
 https://api.slack.com/interactivity/slash-commands  
 https://api.slack.com/interactivity/components  
 https://api.slack.com/block-kit  
 https://slack.dev/node-slack-sdk  
+
+#### Firebase
+https://console.firebase.google.com/ (Create your Firebase app)  
 https://github.com/firebase/firebase-admin-node  
 https://github.com/firebase/firebase-functions  
 https://github.com/googleapis/nodejs-pubsub  
 
 # Project Structure
-Most requests from Slack are processed by
-➔  api/index.js/slackHook - Analyses the payload from Slack and executes the requested commands.  
-➔  api/index.js/installSlackNear - Handles NEAR-Slack installation into Slack Workspace.  
+Most requests from Slack are processed by  
+➔  api/index.js/slackHook - Analyses the payload from Slack and executes the requested commands
+
+➔  api/index.js/installSlackNear - Handles NEAR-Slack installation into Slack Workspace
+
 ➔  api/index.js/slackOauth - Handles Slack Oauth redirect  
 ...
 
 ```
 .\
 ├── api\
-│   ├── index.js              ➔  Main Backend File, Firebase Functions Hooks
-│   ├── slack                 ➔  Slack Helper, generates Slack Responses
-│   ├── near                  ➔  NEAR Helper, Executes NEAR Protocol Calls
-│   │   ├── config.js         ➔  Generates NEAR connect options
-│   │   └── utils             ➔  Random NEAR utils from near-sdk-js
-│   └── pgDB                  ➔  PostgreSQL connection to NEAR Indexer
+│   ├── index.js        ➔  Main Backend File, Firebase Functions Hooks
+│   ├── slack           ➔  Slack Helper, generates Slack Responses
+│   ├── near            ➔  NEAR Helper, Executes NEAR Protocol Calls
+│   │   ├── config.js   ➔  Generates NEAR connect options
+│   │   └── utils       ➔  Random NEAR utils from near-sdk-js
+│   └── pgDB            ➔  PostgreSQL connection to NEAR Indexer
 │   
-├── frontend                  ➔  Deprecated Fallback for Redirects
+├── frontend            ➔  Slack App Homepage + Fallback for Redirects
 └── slack
-    └── slack.yaml            ➔  api.slack.com/apps Config
+    └── slack.yaml      ➔  api.slack.com/apps Config by YAML
 ```
 
 
@@ -169,3 +179,16 @@ The fastest way to run your code during development
 yarn test    ➔ Tests with hidden logs
 yarn testdev ➔ Verbose
 ```
+
+# Support and TODO list
+If you want to support the project NEAR @ danail.near  
+Or want to work on **adding features**,  
+please submit a Feature Request  
+  or contact me by email: [dan@ezlaunder.com](mailto:dan@ezlaunder.com)
+
+Pending Features:
+1. Add a slack bot to capture commands from chat messages, 
+to avoid typing "/near" in front of each command
+2. Add Link-drop support
+3. Add 1 more backend redirect to set header.referer = 'NEAR-Slack' to fix the Unknown App issue at wallet login
+4. Fix issue with pgDB two simultaneous connections (mainnet, testnet) not allowed by NEAR Indexer
