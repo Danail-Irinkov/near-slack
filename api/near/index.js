@@ -1,9 +1,6 @@
 const { connect: nearConnect, utils, providers, keyStores, KeyPair, transactions} = require('near-api-js')
 const { parseContract } = require('near-contract-parser');
-const verify = require('./utils/verify-account')
-const fs = require('fs')
 const config = require('./config')
-const open = require('open')
 const {transfer, createTransaction, functionCall} = require('near-api-js/lib/transaction');
 const pg = require('../pgDB');
 
@@ -272,144 +269,6 @@ async function viewContract (options) {
 	}
 }
 
-// TODO: Rework near-cli deploy to work with our backend
-async function deploy(options) {
-	await checkCredentials(options.accountId, options.networkId, options.keyStore);
-
-	const near = await connect(options);
-	const account = await near.account(options.accountId);
-	let prevState = await account.state();
-	let prevCodeHash = prevState.code_hash;
-
-	if (options.force || await checkExistingContract(prevCodeHash)) {
-		console.log(
-			`Starting deployment. Account id: ${options.accountId}, node: ${options.nodeUrl}, helper: ${options.helperUrl}, file: ${options.wasmFile}`);
-
-		// Deploy with init function and args
-		const txs = [transactions.deployContract(fs.readFileSync(options.wasmFile))];
-
-		if (options.initFunction) {
-			if (!options.initArgs) {
-				console.error('Must add initialization arguments.\nExample: near deploy --accountId near.testnet --initFunction "new" --initArgs \'{"key": "value"}\'');
-				// await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: false, error: 'Must add initialization arguments' }, options);
-				process.exit(1);
-			}
-			txs.push(transactions.functionCall(
-				options.initFunction,
-				Buffer.from(options.initArgs),
-				options.initGas,
-				utils.format.parseNearAmount(options.initDeposit)),
-			);
-		}
-
-		const result = await account.signAndSendTransaction({
-			receiverId: options.accountId,
-			actions: txs
-		});
-		// inspectResponse.prettyPrintResponse(result, options);
-		let state = await account.state();
-		let codeHash = state.code_hash;
-		// await eventtracking.track(eventtracking.EVENT_ID_DEPLOY_END, { success: true, code_hash: codeHash, is_same_contract: prevCodeHash === codeHash, contract_id: options.accountId }, options);
-		// eventtracking.trackDeployedContract();
-		// console.log(`Done deploying ${options.initFunction ? 'and initializing' : 'to'} ${options.accountId}`);
-	}
-};
-// TODO: Rework near-cli login to work with our backend and skip frontend Connection step
-async function login(options) {
-	// await eventtracking.askForConsentIfNeeded(options);
-	if (!options.walletUrl) {
-		console.log('Log in is not needed on this environment. Please use appropriate master account for shell operations.');
-		// await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success: true, login_is_not_needed: true }, options);
-	} else {
-		const newUrl = new URL(options.walletUrl + '/login/');
-		const referrer = 'NEAR CLI';
-		newUrl.searchParams.set('referrer', referrer);
-		const keyPair = await KeyPair.fromRandom('ed25519');
-		newUrl.searchParams.set('public_key', keyPair.getPublicKey());
-
-		// console.log(`\n{bold.yellow Please authorize NEAR CLI} on at least one of your accounts.`);
-
-		// attempt to capture accountId automatically via browser callback
-		let tempUrl;
-		const isWin = process.platform === 'win32';
-
-		// find a callback URL on the local machine
-		try {
-			if (!isWin) { // capture callback is currently not working on windows. This is a workaround to not use it
-				// tempUrl = await capture.callback(5000);
-			}
-		} catch (error) {
-			// console.error("Failed to find suitable port.", error.message)
-			// TODO: Is it? Try triggering error
-			// silent error is better here
-		}
-
-		// if we found a suitable URL, attempt to use it
-		if (tempUrl) {
-			if (process.env.GITPOD_WORKSPACE_URL) {
-				const workspaceUrl = new URL(process.env.GITPOD_WORKSPACE_URL);
-				newUrl.searchParams.set('success_url', `https://${tempUrl.port}-${workspaceUrl.hostname}`);
-				// Browser not opened, as will open automatically for opened port
-			} else {
-				newUrl.searchParams.set('success_url', `http://${tempUrl.hostname}:${tempUrl.port}`);
-				openUrl(newUrl);
-			}
-		} else if (isWin) {
-			// redirect automatically on windows, but do not use the browser callback
-			openUrl(newUrl);
-		}
-
-		console.log(`\n{dim If your browser doesn't automatically open, please visit this URL\n${newUrl.toString()}}`);
-
-		const getAccountFromWebpage = async () => {
-			// capture account_id as provided by NEAR Wallet
-			// const [accountId] = await capture.payload(['account_id'], tempUrl, newUrl);
-			return accountId;
-		};
-
-		// const rl = readline.createInterface({
-		// 	input: process.stdin,
-		// 	output: process.stdout
-		// });
-		const redirectAutomaticallyHint = tempUrl ? ' (if not redirected automatically)' : '';
-		const getAccountFromConsole = async () => {
-			return await new Promise((resolve) => {
-				rl.question(
-					`Please authorize at least one account at the URL above.\n\n` +
-					`Which account did you authorize for use with NEAR CLI?\n` +
-					`{bold Enter it here${redirectAutomaticallyHint}:}\n`, async (accountId) => {
-						resolve(accountId);
-					});
-			});
-		};
-
-		let accountId;
-		if (!tempUrl) {
-			accountId = await getAccountFromConsole();
-		} else {
-			accountId = await new Promise((resolve, reject) => {
-				let resolved = false;
-				const resolveOnce = (result) => { if (!resolved) resolve(result); resolved = true; };
-				getAccountFromWebpage()
-					.then(resolveOnce); // NOTE: error ignored on purpose
-				getAccountFromConsole()
-					.then(resolveOnce)
-					.catch(reject);
-			});
-		}
-		// rl.close();
-		// capture.cancel();
-		// verify the accountId if we captured it or ...
-		try {
-			const success = await verify(accountId, keyPair, options);
-			// await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success }, options);
-		} catch (error) {
-			// await eventtracking.track(eventtracking.EVENT_ID_LOGIN_END, { success: false, error }, options);
-			console.error('Failed to verify accountId.', error.message);
-		}
-	}
-}
-
 async function queryTransactions(options) {
 	const query = options.networkId === 'testnet' ? pg.queryTestnet : pg.queryMainnet;
 	return query(`
@@ -425,15 +284,6 @@ async function queryTransactions(options) {
 		ON transactions.transaction_hash = transaction_actions.transaction_hash`,
 		[options.accountId, options.offset]
 	);
-}
-
-// open a given URL in browser in a safe way.
-async function openUrl(url) {
-	try {
-		await open(url.toString());
-	} catch (error) {
-		console.error(`Failed to open the URL [ ${url.toString()} ]`, error);
-	}
 }
 
 module.exports = {
@@ -453,7 +303,5 @@ module.exports = {
 	callViewFunction,
 	queryTransactionHash,
 	generateTransaction,
-	deploy,
-	login,
 	queryTransactions,
 }
