@@ -323,6 +323,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			// fl.log('No such command.');
 		}
 
+		// Responding to Slack
 		if(response) {
 			if (typeof response === 'string')
 				response = { text: response }
@@ -342,6 +343,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 			}
 		} else
 			res.end()
+		// Responding to Slack - END
 	} catch (e){
 		fl.log('slackHook ERROR1: ', e)
 		let err_msg = formatErrorMsg(e)
