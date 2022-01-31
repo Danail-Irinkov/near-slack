@@ -50,7 +50,7 @@ exports.healthDB = functions.https.onRequest(async (req, res) => {
 
 exports.installSlackNear = functions.https.onRequest(async (req, res) => {
 	const url = await slack.installer.generateInstallUrl({
-		scopes: ['channels:read', 'groups:read', 'channels:manage', 'chat:write', 'incoming-webhook'],
+		scopes: ['chat:write', 'commands', 'incoming-webhook'],
 		metadata: 'some_metadata',
 	})
 	res.header("Location", url).send(302);
@@ -143,7 +143,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 	try {
 		// fl.log('process.env ', process.env)
 		if (process.env.NODE_ENV === 'production' && !slack.validateRequest(req))
-			return res.send('Request Authentication Error')
+			return res.status(401).send('Request Authentication Error')
 
 		// fl.log('slackHook req', req.body)
 		let payload = parseSlackPayload(req)
