@@ -1,7 +1,34 @@
-# near-slack
+# NEAR for Slack
+This is a demo project built as an assignment from WeLoveNoCode<br /> 
+and NEAR Protocol Education.
+
+NEAR for Slack will help you interact with the NEAR Protocol,  <br /> 
+however if your actions involve any NEAR token usage,     <br /> 
+you will always get redirected to the official NEAR website to sign the transactions.
+
+We cannot guarantee 100% uptime and service availability.<br />
+If you want to extend or scale the service to your own needs:
+
+1. Fork the repo, clone and run ```yarn && yarn apii```
+2. Create your own Firebase Project
+3. Install firebase-cli and run ```firebase login```
+4. Create a Slack App and configure it (can use the provided```./slack/slack.yaml```)
+5. Add your Slack credentials to Firebase with ```firebase functions:config:set```
+6. Now you can deploy both frontend and backend by ```yarn buildd & yarn apid```
+7. (Optional) To run the tests ```yarn test``` you will need to provide service account keys as per the Firebase Testing Guide   
+
+If you have questions feel free to contact me by [email](mailto:dan@ezlaunder.com) 
+
 ##Integration of NEAR protocol with Slack
 The first Slack Integration, 
 that allows Slack users to directly monitor and control the NEAR Protocol.
+
+### Install In Slack
+[Install NEAR-Slack](https://us-central1-near-api-1d073.cloudfunctions.net/installSlackNear)
+
+### Demo Video
+[![Watch the video](https://i.imgur.com/AvI9gLG.jpg)](https://youtu.be/WkPLb2e2_ws)
+
 
 After you install the app in your Slack workspace,  
 you will be able to access it with Slash command:  
@@ -15,12 +42,6 @@ for more details use
 ```
 /near help {?command}
 ```  
-
-### Install In Slack
-[Install NEAR-Slack](https://us-central1-near-api-1d073.cloudfunctions.net/installSlackNear)
-
-### Demo Video
-[![Watch the video](https://i.imgur.com/AvI9gLG.jpg)](https://youtu.be/WkPLb2e2_ws)
 
 ### NEAR features:
 * Create Account
@@ -192,3 +213,27 @@ to avoid typing "/near" in front of each command
 2. Add Link-drop support
 3. Add 1 more backend redirect to set header.referer = 'NEAR-Slack' to fix the Unknown App issue at wallet login
 4. Fix issue with pgDB two simultaneous connections (mainnet, testnet) not allowed by NEAR Indexer
+5. Add flow for brand-new users who discover NEAR via Slack
+
+
+MIT License
+
+Copyright (c) 2022 Danail Irinkov
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

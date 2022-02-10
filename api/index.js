@@ -348,7 +348,7 @@ exports.slackHook = functions.https.onRequest(async (req, res) => {
 		fl.log('slackHook ERROR1: ', e)
 		let err_msg = formatErrorMsg(e)
 		fl.log('slackHook ERROR2: ', err_msg)
-		res.send(err_msg)
+		res.send({ error: err_msg })
 	}
 })
 

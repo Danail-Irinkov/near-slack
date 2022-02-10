@@ -88,9 +88,6 @@ export default {
 				this.walletAccount = new nearAPI.WalletConnection(this.near);
 				this.accountId = this.walletAccount.getAccountId();
 				
-				// TODO: Tozi kod s kakva cel e? Az zapisvam token-a sled redirecta ot query params, no nz dali e pravilniq token
-				// const key = await config.keyStore.getKey("testnet", "maix.testnet"); // tuk e problema
-				// console.log("config.keyStore", key);
 			} catch (e) {
 				console.log('initNearAPI err', e)
 				return Promise.reject(e)

@@ -614,8 +614,17 @@ module.exports = function (db, functions) {
 	}
 
 	async function help (payload, commands) {
+		let userDoc = await db.collection('users').doc(createUserDocId(payload.user_name)).get()
+
+		let novice_text = ''
+		if(!userDoc.exists) {
+			novice_text = 'If you are New to NEAR\n' +
+				'learn more about NEAR @ https://near.org/\n' +
+				'and create your account with /near create\n\n'
+		}
+
 		let help = {
-			text: 'Available commands:\n' +
+			text: novice_text + 'Available commands:\n' +
 				'login, contract, send, view, call, account, ...\n' +
 				'for more details use /near help {command}',
 			response_type: 'ephemeral',
