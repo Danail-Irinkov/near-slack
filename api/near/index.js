@@ -271,6 +271,7 @@ async function viewContract (options) {
 
 async function queryTransactions(options) {
 	const query = options.networkId === 'testnet' ? pg.queryTestnet : pg.queryMainnet;
+
 	return query(`
 		SELECT transactions.transaction_hash, converted_into_receipt_id, block_timestamp, signer_account_id, receiver_account_id, action_kind, args 
 		FROM (
@@ -303,5 +304,5 @@ module.exports = {
 	callViewFunction,
 	queryTransactionHash,
 	generateTransaction,
-	queryTransactions,
+	queryTransactions
 }

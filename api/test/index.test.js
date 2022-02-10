@@ -325,6 +325,16 @@ describe('Slack Slash Commands Tests', () => {
 			}
 		});
 	})
+	describe('/near transactions volkky.near', () => {
+		it('returns a list of user transactions', async () => {
+			try {
+				let res = await testHTTPFunction(myFunctions, 'slackHook', 'transactions volkky.near')
+				assert.isTrue(!!(res.text && res.text.indexOf('currently overloaded') !== -1)) // INDEXER NOT WORKING
+			} catch (e) {
+				return Promise.reject(e)
+			}
+		});
+	})
 
 	// describe('/near logout', () => {
 	// 	it('returns "Logged out"', async () => {

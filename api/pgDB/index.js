@@ -7,7 +7,7 @@ const { Pool } = require('pg')
 // TODO: Need to make a good way of switching pg connections to mainnet, as currently the second connection is getting blocked for 'too many connections'
 // TODO; but also making the users wait for the connection setup on each transaction is too slow
 const pool_testnet = new Pool({connectionString: 'postgres://public_readonly:nearprotocol@testnet.db.explorer.indexer.near.dev/testnet_explorer'})
-// const pool_mainnet = new Pool({connectionString: 'postgres://public_readonly:nearprotocol@mainnet.db.explorer.indexer.near.dev/mainnet_explorer'})
+const pool_mainnet = new Pool({connectionString: 'postgres://public_readonly:nearprotocol@mainnet.db.explorer.indexer.near.dev/mainnet_explorer'})
 
 async function query(text, params, pool) {
 	// const start = Date.now()

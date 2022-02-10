@@ -131,7 +131,7 @@ module.exports = function (db, functions) {
 				]
 			}
 		} catch (e) {
-			fl.log('slack-cli keys err: ', e)
+			fl.log('slack-cli create err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -978,7 +978,7 @@ module.exports = function (db, functions) {
 			}
 			return response
 		} catch (e) {
-			console.log('slack-cli keys err: ', e)
+			console.log('slack-cli getDeletionResponse err: ', e)
 			return Promise.reject(e)
 		}
 	}
@@ -996,6 +996,12 @@ module.exports = function (db, functions) {
 				{accountId, offset}
 			);
 			console.time('queryTransactions')
+
+			// EXCEPTION TO AVOID QUERYING THE MAINENT INDEXER DUE TO LOW AVAILABILITY
+			if (near.getNetworkFromAccount(accountId) === 'near') {
+				return { text: 'Mainnet Indexer is currently overloaded...' }
+			}
+
 			const response = await near.queryTransactions(options);
 			console.timeEnd('queryTransactions')
 
@@ -1084,7 +1090,7 @@ module.exports = function (db, functions) {
 				blocks
 			};
 		} catch (e) {
-			console.log('slack-cli keys err: ', e)
+			console.log('slack-cli transactions err: ', e)
 			return Promise.reject(e)
 		}
 	}
