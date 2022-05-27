@@ -19,7 +19,7 @@
   },
   "main": "index.js",
   "dependencies": {
-    "@google-cloud/pubsub": "^2.18.4",
+    "@google-cloud/pubsub": "^3.0.0",
     "@slack/events-api": "^3.0.1",
     "@slack/oauth": "^2.3.0",
     "@slack/web-api": "^6.5.1",
