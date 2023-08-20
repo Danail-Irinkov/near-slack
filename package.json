@@ -17,11 +17,11 @@
   },
   "dependencies": {
     "@egoist/vue-head": "^0.1.8",
-    "@firebase/firestore": "^3.4.1",
+    "@firebase/firestore": "^4.1.1",
     "axios": "^0.24.0",
     "buffer": "^6.0.3",
     "express": "^4.17.2",
-    "firebase": "^9.6.1",
+    "firebase": "^10.2.0",
     "firebase-admin": "^10.0.1",
     "near-api-js": "^0.44.2",
     "url": "^0.11.0",
